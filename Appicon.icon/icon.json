@@ -1,15 +1,34 @@
 {
-  "fill" : {
-    "linear-gradient" : [
-      "display-p3:0.63236,1.00000,0.79735,1.00000",
-      "display-p3:0.26630,0.41128,0.56808,1.00000"
-    ]
-  },
+  "fill" : "system-light",
   "groups" : [
     {
       "hidden" : false,
       "layers" : [
         {
+          "fill-specializations" : [
+            {
+              "value" : {
+                "linear-gradient" : [
+                  "display-p3:0.53593,0.66736,1.00000,0.67004",
+                  "display-p3:0.94973,0.63452,0.80315,1.00000"
+                ],
+                "orientation" : {
+                  "start" : {
+                    "x" : 0.27623187500000007,
+                    "y" : 0.1753566878980892
+                  },
+                  "stop" : {
+                    "x" : 0.6616120833333334,
+                    "y" : 0.7300491640127388
+                  }
+                }
+              }
+            },
+            {
+              "appearance" : "dark",
+              "value" : "automatic"
+            }
+          ],
           "image-name" : "Image.svg",
           "name" : "Image",
           "position" : {
@@ -27,7 +46,7 @@
         "strength" : 0.2645703125
       },
       "shadow" : {
-        "kind" : "neutral",
+        "kind" : "layer-color",
         "opacity" : 0.6
       },
       "translucency" : {
