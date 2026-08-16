@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="docs/images/app-icon.png" width="128" alt="Placard app icon">
+</p>
+
 # Placard
 
 Placard is an iOS app for browsing, creating, installing, and managing custom PosterBoard wallpapers.
@@ -11,6 +15,12 @@ Placard is an iOS app for browsing, creating, installing, and managing custom Po
 - View and remove installed custom and featured wallpapers
 - Refresh SpringBoard after wallpaper changes with NeoSpring
 - English and Simplified Chinese localization
+
+## Preview
+
+<p align="center">
+  <img src="docs/images/browse-custom.png" width="360" alt="Placard's Custom wallpaper browsing screen">
+</p>
 
 ## Requirements
 
