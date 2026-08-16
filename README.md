@@ -5,7 +5,7 @@ Placard is an iOS app for browsing, creating, installing, and managing custom Po
 ## Features
 
 - Browse, search, sort, and preview community-made interactive wallpapers
-- Download and validate `.tendies` wallpaper packages
+- Download or import local `.tendies` wallpaper packages
 - Turn a vertical video of up to 12 seconds into a looping or auto-reversing Lock Screen wallpaper
 - Install wallpapers directly into PosterBoard on supported physical devices
 - View and remove installed custom and featured wallpapers

@@ -18,6 +18,9 @@
 "Unable to Import Video" = "无法导入视频";
 "OK" = "好";
 "Importing…" = "正在导入…";
+"Import Wallpaper" = "导入壁纸";
+"Unable to Import Wallpaper" = "无法导入壁纸";
+"Importing wallpaper…" = "正在导入壁纸…";
 "Preview" = "预览";
 "Close" = "关闭";
 "Done" = "完成";
@@ -37,6 +40,7 @@
 "Please install wallpapers on a physical device." = "请在真机上安装壁纸。";
 "This system version is not supported." = "当前系统版本不受支持。";
 "The download URL is invalid." = "下载地址无效。";
+"Choose a .tendies wallpaper package." = "请选择 .tendies 壁纸包。";
 "Download failed. Please try again later." = "下载失败，请稍后再试。";
 "The wallpaper package is empty or too large." = "壁纸包为空或过大。";
 "The wallpaper package is invalid or damaged." = "壁纸包无效或已损坏。";

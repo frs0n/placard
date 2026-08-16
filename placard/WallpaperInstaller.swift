@@ -29,6 +29,33 @@ final class InstallCoordinator {
         }
     }
 
+    func install(packageAt packageURL: URL) {
+        guard !state.isWorking else { return }
+        task?.cancel()
+        state = .importing
+        task = Task {
+            let hasSecurityScopedAccess = packageURL.startAccessingSecurityScopedResource()
+            defer {
+                if hasSecurityScopedAccess {
+                    packageURL.stopAccessingSecurityScopedResource()
+                }
+            }
+
+            do {
+                try await installer.install(packageAt: packageURL) { [weak self] phase in
+                    self?.state = phase
+                }
+                state = .preparingRespring
+                try await Task.sleep(for: .milliseconds(250))
+                state = .respringing
+            } catch is CancellationError {
+                state = .idle
+            } catch {
+                state = .failure(error.localizedDescription)
+            }
+        }
+    }
+
     func reset() {
         guard !state.isWorking else { return }
         state = .idle
@@ -38,6 +65,7 @@ final class InstallCoordinator {
 enum InstallState: Equatable, Sendable {
     case idle
     case downloading
+    case importing
     case unpacking
     case locatingPosterBoard
     case writing
@@ -47,7 +75,7 @@ enum InstallState: Equatable, Sendable {
 
     var isWorking: Bool {
         switch self {
-        case .downloading, .unpacking, .locatingPosterBoard, .writing,
+        case .downloading, .importing, .unpacking, .locatingPosterBoard, .writing,
              .preparingRespring, .respringing: true
         default: false
         }
@@ -64,6 +92,7 @@ enum InstallState: Equatable, Sendable {
         switch self {
         case .idle: ""
         case .downloading: String(localized: "Downloading…")
+        case .importing: String(localized: "Importing wallpaper…")
         case .unpacking: String(localized: "Unpacking…")
         case .locatingPosterBoard: String(localized: "Preparing…")
         case .writing: String(localized: "Installing…")
@@ -133,6 +162,69 @@ private actor WallpaperInstaller {
         }
         InstalledWallpaperNameStore.record(name: wallpaper.name, paths: writtenPaths)
         #endif
+    }
+
+    func install(
+        packageAt sourceURL: URL,
+        progress: @MainActor @Sendable (InstallState) -> Void
+    ) async throws {
+        #if targetEnvironment(simulator)
+        throw InstallError.deviceRequired
+        #else
+        guard BadQuery.isAvailable else { throw InstallError.unsupportedSystem }
+        guard sourceURL.pathExtension.lowercased() == "tendies" else {
+            throw InstallError.unsupportedPackageType
+        }
+
+        let workspace = fileManager.temporaryDirectory
+            .appending(path: "Placard-\(UUID().uuidString)", directoryHint: .isDirectory)
+        try fileManager.createDirectory(at: workspace, withIntermediateDirectories: true)
+        defer { try? fileManager.removeItem(at: workspace) }
+
+        let packageURL = try copyImportedPackage(sourceURL, into: workspace)
+        try Task.checkCancellation()
+
+        await progress(.unpacking)
+        let extractedURL = try extract(packageURL, into: workspace)
+        let descriptorGroups = try findDescriptorGroups(in: extractedURL)
+        guard !descriptorGroups.isEmpty else { throw InstallError.noDescriptors }
+        for descriptors in descriptorGroups.values.flatMap({ $0 }) {
+            try randomizeIdentifier(in: descriptors)
+        }
+        try Task.checkCancellation()
+
+        await progress(.locatingPosterBoard)
+        let appHash = try BadQuery.findPosterBoardHash()
+        try Task.checkCancellation()
+
+        await progress(.writing)
+        var writtenPaths: [String] = []
+        for (extensionID, descriptors) in descriptorGroups {
+            writtenPaths += try BadQuery.writeDescriptors(
+                appHash: appHash,
+                extensionID: extensionID,
+                descriptorFolders: descriptors
+            )
+        }
+        InstalledWallpaperNameStore.record(
+            name: sourceURL.deletingPathExtension().lastPathComponent,
+            paths: writtenPaths
+        )
+        #endif
+    }
+
+    private func copyImportedPackage(_ sourceURL: URL, into workspace: URL) throws -> URL {
+        let values = try sourceURL.resourceValues(forKeys: [.fileSizeKey, .isRegularFileKey])
+        guard values.isRegularFile == true,
+              let fileSize = values.fileSize,
+              fileSize > 0,
+              Int64(fileSize) <= maximumPackageBytes else {
+            throw InstallError.packageTooLarge
+        }
+
+        let destination = workspace.appending(path: "wallpaper.\(sourceURL.pathExtension.lowercased())")
+        try fileManager.copyItem(at: sourceURL, to: destination)
+        return destination
     }
 
     private func download(_ remoteURL: URL, into workspace: URL) async throws -> URL {
@@ -278,6 +370,7 @@ enum InstallError: LocalizedError {
     case deviceRequired
     case unsupportedSystem
     case invalidDownloadURL
+    case unsupportedPackageType
     case downloadFailed
     case packageTooLarge
     case invalidPackage
@@ -288,6 +381,7 @@ enum InstallError: LocalizedError {
         case .deviceRequired: String(localized: "Please install wallpapers on a physical device.")
         case .unsupportedSystem: String(localized: "This system version is not supported.")
         case .invalidDownloadURL: String(localized: "The download URL is invalid.")
+        case .unsupportedPackageType: String(localized: "Choose a .tendies wallpaper package.")
         case .downloadFailed: String(localized: "Download failed. Please try again later.")
         case .packageTooLarge: String(localized: "The wallpaper package is empty or too large.")
         case .invalidPackage: String(localized: "The wallpaper package is invalid or damaged.")

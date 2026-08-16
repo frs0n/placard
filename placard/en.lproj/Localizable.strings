@@ -18,6 +18,9 @@
 "Unable to Import Video" = "Unable to Import Video";
 "OK" = "OK";
 "Importing…" = "Importing…";
+"Import Wallpaper" = "Import Wallpaper";
+"Unable to Import Wallpaper" = "Unable to Import Wallpaper";
+"Importing wallpaper…" = "Importing wallpaper…";
 "Preview" = "Preview";
 "Close" = "Close";
 "Done" = "Done";
@@ -37,6 +40,7 @@
 "Please install wallpapers on a physical device." = "Please install wallpapers on a physical device.";
 "This system version is not supported." = "This system version is not supported.";
 "The download URL is invalid." = "The download URL is invalid.";
+"Choose a .tendies wallpaper package." = "Choose a .tendies wallpaper package.";
 "Download failed. Please try again later." = "Download failed. Please try again later.";
 "The wallpaper package is empty or too large." = "The wallpaper package is empty or too large.";
 "The wallpaper package is invalid or damaged." = "The wallpaper package is invalid or damaged.";

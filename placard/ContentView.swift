@@ -1,5 +1,6 @@
 import SwiftUI
 import PhotosUI
+import UniformTypeIdentifiers
 
 @main
 struct PlacardApp: App {
@@ -38,6 +39,10 @@ private enum AppTab: Hashable {
 }
 
 struct WallpaperBrowserView: View {
+    private static let importablePackageTypes = ["tendies"].compactMap {
+        UTType(filenameExtension: $0)
+    }
+
     private let catalog: WallpaperCatalog
 
     @State private var category: WallpaperCategory = .custom
@@ -46,6 +51,8 @@ struct WallpaperBrowserView: View {
     @State private var sortOrder: WallpaperSortOrder = .random
     @State private var ordered: [Wallpaper] = []
     @State private var loadedCategory: WallpaperCategory?
+    @State private var isImportingPackage = false
+    @State private var importCoordinator = InstallCoordinator()
 
     init(catalog: WallpaperCatalog = .live) {
         self.catalog = catalog
@@ -108,6 +115,14 @@ struct WallpaperBrowserView: View {
                 }
 
                 ToolbarItem(placement: .topBarTrailing) {
+                    Button("Import Wallpaper", systemImage: "square.and.arrow.down") {
+                        isImportingPackage = true
+                    }
+                    .labelStyle(.iconOnly)
+                    .disabled(importCoordinator.state.isWorking)
+                }
+
+                ToolbarItem(placement: .topBarTrailing) {
                     Menu {
                         Picker("Sort", selection: $sortOrder) {
                             ForEach(WallpaperSortOrder.allCases) { order in
@@ -123,6 +138,37 @@ struct WallpaperBrowserView: View {
             .searchable(text: $query, prompt: "Search")
             .refreshable { await refresh() }
             .task(id: category) { await loadIfNeeded(category) }
+            .fileImporter(
+                isPresented: $isImportingPackage,
+                allowedContentTypes: Self.importablePackageTypes
+            ) { result in
+                if case .success(let packageURL) = result {
+                    importCoordinator.install(packageAt: packageURL)
+                }
+            }
+            .alert(
+                "Unable to Import Wallpaper",
+                isPresented: .init(
+                    get: { importCoordinator.state.isTerminal },
+                    set: { if !$0 { importCoordinator.reset() } }
+                )
+            ) {
+                Button("OK", role: .cancel) { importCoordinator.reset() }
+            } message: {
+                Text(importCoordinator.state.message)
+            }
+            .overlay {
+                if importCoordinator.state == .respringing {
+                    NeoSpringView()
+                        .ignoresSafeArea()
+                        .transition(.opacity)
+                } else if importCoordinator.state.isWorking {
+                    ProgressView(importCoordinator.state.message)
+                        .padding(.horizontal, 20)
+                        .padding(.vertical, 14)
+                        .glassEffect(.regular, in: .rect(cornerRadius: 18))
+                }
+            }
         }
     }
 
