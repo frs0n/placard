@@ -87,18 +87,18 @@ enum VideoInstallState: Equatable, Sendable {
         switch self {
         case .idle: ""
         case .inspecting: "正在检查视频…"
-        case .generating: "正在逐帧生成动态壁纸…"
-        case .locatingPosterBoard: "正在定位 PosterBoard…"
-        case .writing: "正在写入视频壁纸…"
-        case .preparingRespring: "写入完成，正在准备刷新桌面…"
-        case .respringing: "正在刷新桌面…"
+        case .generating: "正在生成动态壁纸…"
+        case .locatingPosterBoard: "正在准备…"
+        case .writing: "正在安装…"
+        case .preparingRespring: "即将刷新屏幕…"
+        case .respringing: "正在刷新屏幕…"
         case .failure(let message): message
         }
     }
 
     var buttonTitle: String {
         switch self {
-        case .idle, .failure: "生成、安装并刷新桌面"
+        case .idle, .failure: "安装壁纸"
         default: "处理中…"
         }
     }
@@ -430,12 +430,12 @@ enum VideoWallpaperError: LocalizedError {
 
     var errorDescription: String? {
         switch self {
-        case .deviceRequired: "模拟器无法写入系统壁纸，请在真机上安装。"
-        case .unsupportedSystem: "当前系统不支持 bad_query 写入方式。"
-        case .invalidVideo: "无法读取这个视频的画面或时长。"
+        case .deviceRequired: "请在真机上安装壁纸。"
+        case .unsupportedSystem: "当前系统版本不受支持。"
+        case .invalidVideo: "无法读取这个视频。"
         case .videoTooLong(let seconds): "视频不能超过 \(Int(seconds)) 秒。"
-        case .tooManyFrames(let count): "视频帧数过多，请使用不超过 \(count) 帧的视频。"
-        case .frameEncodingFailed: "生成视频壁纸帧时失败。"
+        case .tooManyFrames(let count): "视频帧数过多，请控制在 \(count) 帧以内。"
+        case .frameEncodingFailed: "生成动态壁纸失败。"
         }
     }
 }
@@ -445,7 +445,7 @@ struct VideoWallpaperDetailView: View {
 
     let draft: VideoWallpaperDraft
 
-    @State private var name = "我的视频壁纸"
+    @State private var name = "视频壁纸"
     @State private var autoReverses = false
     @State private var installer = VideoInstallCoordinator()
 
@@ -472,7 +472,7 @@ struct VideoWallpaperDetailView: View {
                         Toggle(isOn: $autoReverses) {
                             VStack(alignment: .leading, spacing: 3) {
                                 Text("往返播放")
-                                Text("播放到结尾后反向播放，衔接更平滑")
+                                Text("循环时反向播放，衔接更自然")
                                     .font(.caption)
                                     .foregroundStyle(.secondary)
                             }
@@ -481,7 +481,7 @@ struct VideoWallpaperDetailView: View {
                     }
                     .background(.quaternary.opacity(0.55), in: .rect(cornerRadius: 16))
 
-                    Text("视频最长 12 秒；生成时会逐帧转换，所需时间和空间取决于分辨率与帧率。")
+                    Text("视频最长 12 秒，生成时可能需要一点时间。")
                         .font(.footnote)
                         .foregroundStyle(.secondary)
                         .frame(maxWidth: .infinity, alignment: .leading)

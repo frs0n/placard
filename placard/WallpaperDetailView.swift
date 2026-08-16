@@ -93,7 +93,7 @@ private struct InstallBar: View {
             .disabled(state.isWorking)
 
             if state == .idle || state.isTerminal {
-                Text("写入完成后会使用 NeoSpring 刷新 SpringBoard，屏幕将短暂变黑。")
+                Text("安装后屏幕会短暂刷新。")
                     .font(.caption2)
                     .foregroundStyle(.tertiary)
                     .frame(maxWidth: .infinity, alignment: .leading)

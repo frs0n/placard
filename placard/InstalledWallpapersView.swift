@@ -19,8 +19,8 @@ struct InstalledWallpapersView: View {
             Alert(
                 title: Text("删除“\(wallpaper.name)”？"),
                 message: Text(wallpaper.source == .configuration
-                    ? "将从“我的壁纸”中移除这一个可切换壁纸，并刷新桌面。"
-                    : "将从“精选”中移除这一个壁纸项目，并刷新桌面。已经创建的可切换壁纸不会一起删除。"),
+                    ? "将从“我的壁纸”中移除并刷新屏幕。"
+                    : "将从“精选”中移除并刷新屏幕。已创建的壁纸不受影响。"),
                 primaryButton: .destructive(Text("删除")) {
                     manager.delete(wallpaper)
                 },
@@ -40,14 +40,14 @@ struct InstalledWallpapersView: View {
     private var content: some View {
         switch manager.state {
         case .idle, .loading:
-            ProgressView("正在读取 PosterBoard…")
+            ProgressView("正在载入…")
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
         case .loaded(let wallpapers):
             if wallpapers.isEmpty {
                 ContentUnavailableView(
-                    "没有壁纸配置",
+                    "暂无壁纸",
                     systemImage: "rectangle.stack.badge.minus",
-                    description: Text("PosterBoard 没有返回已保存的锁屏壁纸。")
+                    description: Text("这里会显示已保存的锁屏壁纸。")
                 )
             } else {
                 InstalledWallpaperList(
@@ -60,17 +60,17 @@ struct InstalledWallpapersView: View {
             }
         case .failed(let message):
             ContentUnavailableView {
-                Label("无法读取已安装壁纸", systemImage: "exclamationmark.triangle")
+                Label("无法载入", systemImage: "exclamationmark.triangle")
             } description: {
                 Text(message)
             } actions: {
                 Button("重试") { Task { await manager.load() } }
             }
         case .deleting:
-            ProgressView("正在删除壁纸…")
+            ProgressView("正在删除…")
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
         case .preparingRespring:
-            ProgressView("删除完成，正在准备刷新桌面…")
+            ProgressView("即将刷新屏幕…")
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
         case .respringing:
             Color.black.ignoresSafeArea()
@@ -171,7 +171,7 @@ private struct SystemWallpaperSnapshot: View {
                         .font(.caption2)
                 }
                 .foregroundStyle(.secondary)
-                .accessibilityHint(wallpaper.snapshotError ?? "PosterBoard 没有返回这个配置的快照")
+                .accessibilityHint(wallpaper.snapshotError ?? "没有可用的预览")
             }
         }
         .frame(width: 62, height: 88)

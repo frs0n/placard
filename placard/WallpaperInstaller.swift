@@ -63,19 +63,19 @@ enum InstallState: Equatable, Sendable {
     var message: String {
         switch self {
         case .idle: ""
-        case .downloading: "正在下载壁纸…"
-        case .unpacking: "正在检查壁纸包…"
-        case .locatingPosterBoard: "正在定位 PosterBoard…"
-        case .writing: "正在写入壁纸…"
-        case .preparingRespring: "写入完成，正在准备刷新桌面…"
-        case .respringing: "正在刷新桌面…"
+        case .downloading: "正在下载…"
+        case .unpacking: "正在解压…"
+        case .locatingPosterBoard: "正在准备…"
+        case .writing: "正在安装…"
+        case .preparingRespring: "即将刷新屏幕…"
+        case .respringing: "正在刷新屏幕…"
         case .failure(let message): message
         }
     }
 
     var buttonTitle: String {
         switch self {
-        case .idle, .failure: "安装并刷新桌面"
+        case .idle, .failure: "安装壁纸"
         default: "安装中…"
         }
     }
@@ -285,13 +285,13 @@ enum InstallError: LocalizedError {
 
     var errorDescription: String? {
         switch self {
-        case .deviceRequired: "模拟器无法写入系统壁纸，请在真机上安装。"
-        case .unsupportedSystem: "当前系统不支持 bad_query 写入方式。"
-        case .invalidDownloadURL: "壁纸下载地址无效。"
-        case .downloadFailed: "壁纸下载失败。"
-        case .packageTooLarge: "壁纸包为空或超过 250 MB。"
-        case .invalidPackage: "壁纸包格式无效或包含不安全路径。"
-        case .noDescriptors: "壁纸包中没有可安装的 descriptor。"
+        case .deviceRequired: "请在真机上安装壁纸。"
+        case .unsupportedSystem: "当前系统版本不受支持。"
+        case .invalidDownloadURL: "下载地址无效。"
+        case .downloadFailed: "下载失败，请稍后再试。"
+        case .packageTooLarge: "壁纸包为空或过大。"
+        case .invalidPackage: "壁纸包无效或已损坏。"
+        case .noDescriptors: "壁纸包中没有可安装的内容。"
         }
     }
 }

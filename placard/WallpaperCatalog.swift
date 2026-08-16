@@ -14,6 +14,39 @@ enum WallpaperCategory: String, CaseIterable, Identifiable, Sendable {
     }
 }
 
+enum WallpaperSortOrder: String, CaseIterable, Identifiable, Sendable {
+    case random
+    case newest
+    case oldest
+
+    var id: Self { self }
+
+    var title: String {
+        switch self {
+        case .random: "随机"
+        case .newest: "最新"
+        case .oldest: "最早"
+        }
+    }
+
+    var symbol: String {
+        switch self {
+        case .random: "shuffle"
+        case .newest: "arrow.up"
+        case .oldest: "arrow.down"
+        }
+    }
+
+    /// Reorders the catalog (as-fetched: oldest first) to match this option.
+    func apply(to wallpapers: [Wallpaper]) -> [Wallpaper] {
+        switch self {
+        case .random: wallpapers.shuffled()
+        case .newest: wallpapers.reversed()
+        case .oldest: wallpapers
+        }
+    }
+}
+
 struct Wallpaper: Codable, Identifiable, Equatable, Sendable {
     let remoteID: Int?
     let name: String
@@ -93,5 +126,5 @@ struct WallpaperCatalog: Sendable {
 enum CatalogError: LocalizedError {
     case invalidResponse
 
-    var errorDescription: String? { "网站暂时没有返回可用的壁纸列表。" }
+    var errorDescription: String? { "暂时无法获取壁纸，请稍后再试。" }
 }
