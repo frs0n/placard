@@ -12,16 +12,16 @@ struct InstalledWallpapersView: View {
     var body: some View {
         NavigationStack {
             content
-                .navigationTitle("已安装")
+                .navigationTitle("Library")
         }
         .task { await manager.load() }
         .alert(item: $pendingDeletion) { wallpaper in
             Alert(
-                title: Text("删除“\(wallpaper.name)”？"),
+                title: Text("Delete “\(wallpaper.name)”?"),
                 message: Text(wallpaper.source == .configuration
-                    ? "将从“我的壁纸”中移除并刷新屏幕。"
-                    : "将从“精选”中移除并刷新屏幕。已创建的壁纸不受影响。"),
-                primaryButton: .destructive(Text("删除")) {
+                    ? "This will remove it from My Wallpapers and refresh the screen."
+                    : "This will remove it from Featured and refresh the screen. Wallpapers you created are unaffected."),
+                primaryButton: .destructive(Text("Delete")) {
                     manager.delete(wallpaper)
                 },
                 secondaryButton: .cancel()
@@ -40,14 +40,14 @@ struct InstalledWallpapersView: View {
     private var content: some View {
         switch manager.state {
         case .idle, .loading:
-            ProgressView("正在载入…")
+            ProgressView("Loading…")
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
         case .loaded(let wallpapers):
             if wallpapers.isEmpty {
                 ContentUnavailableView(
-                    "暂无壁纸",
+                    "No Wallpapers",
                     systemImage: "rectangle.stack.badge.minus",
-                    description: Text("这里会显示已保存的锁屏壁纸。")
+                    description: Text("Saved Lock Screen wallpapers will appear here.")
                 )
             } else {
                 InstalledWallpaperList(
@@ -60,17 +60,17 @@ struct InstalledWallpapersView: View {
             }
         case .failed(let message):
             ContentUnavailableView {
-                Label("无法载入", systemImage: "exclamationmark.triangle")
+                Label("Unable to Load", systemImage: "exclamationmark.triangle")
             } description: {
                 Text(message)
             } actions: {
-                Button("重试") { Task { await manager.load() } }
+                Button("Retry") { Task { await manager.load() } }
             }
         case .deleting:
-            ProgressView("正在删除…")
+            ProgressView("Deleting…")
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
         case .preparingRespring:
-            ProgressView("即将刷新屏幕…")
+            ProgressView("Refreshing screen…")
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
         case .respringing:
             Color.black.ignoresSafeArea()
@@ -93,34 +93,53 @@ private struct InstalledWallpaperList: View {
     }
 
     var body: some View {
-        VStack(spacing: 0) {
-            Picker("壁纸来源", selection: $selectedSource) {
-                Text("精选").tag(InstalledWallpaper.Source.galleryDescriptor)
-                Text("我的壁纸").tag(InstalledWallpaper.Source.configuration)
+        List {
+            Section {
+                Picker("Wallpaper Source", selection: $selectedSource) {
+                    Text("Featured").tag(InstalledWallpaper.Source.galleryDescriptor)
+                    Text("My Wallpapers").tag(InstalledWallpaper.Source.configuration)
+                }
+                .pickerStyle(.segmented)
+                .listRowBackground(Color.clear)
+                .listRowInsets(.init(top: 4, leading: 0, bottom: 8, trailing: 0))
             }
-            .pickerStyle(.segmented)
-            .padding(.horizontal, 16)
-            .padding(.vertical, 10)
-            .background(.bar)
 
-            List {
+            if wallpapers.isEmpty {
                 Section {
+                    ContentUnavailableView(
+                        "No Wallpapers Here Yet",
+                        systemImage: "rectangle.stack.badge.minus",
+                        description: Text(selectedSource == .configuration
+                            ? "System wallpapers you create will appear here."
+                            : "Saved featured wallpapers will appear here.")
+                    )
+                    .listRowBackground(Color.clear)
+                }
+            } else {
+                Section("\(wallpapers.count) items") {
                     ForEach(wallpapers) { wallpaper in
-                        InstalledWallpaperRow(wallpaper: wallpaper, onDelete: onDelete)
+                        InstalledWallpaperRow(wallpaper: wallpaper)
+                            .swipeActions {
+                                Button("Delete", systemImage: "trash", role: .destructive) {
+                                    onDelete(wallpaper)
+                                }
+                            }
+                            .contextMenu {
+                                Button("Delete", systemImage: "trash", role: .destructive) {
+                                    onDelete(wallpaper)
+                                }
+                            }
                     }
-                } header: {
-                    Text("\(wallpapers.count) 个项目")
                 }
             }
-            .listStyle(.insetGrouped)
-            .refreshable { await onRefresh() }
         }
+        .listStyle(.insetGrouped)
+        .refreshable { await onRefresh() }
     }
 }
 
 private struct InstalledWallpaperRow: View {
     let wallpaper: InstalledWallpaper
-    let onDelete: (InstalledWallpaper) -> Void
 
     var body: some View {
         HStack(spacing: 12) {
@@ -140,16 +159,6 @@ private struct InstalledWallpaperRow: View {
                 .foregroundStyle(.secondary)
             }
 
-            Spacer()
-
-            Button(role: .destructive) {
-                onDelete(wallpaper)
-            } label: {
-                Image(systemName: "trash")
-                    .frame(width: 32, height: 32)
-            }
-            .buttonStyle(.plain)
-            .accessibilityLabel("删除 \(wallpaper.name)")
         }
         .padding(.vertical, 6)
     }
@@ -167,11 +176,11 @@ private struct SystemWallpaperSnapshot: View {
             } else {
                 VStack(spacing: 5) {
                     Image(systemName: "rectangle.portrait.slash")
-                    Text("无快照")
+                    Text("No Snapshot")
                         .font(.caption2)
                 }
                 .foregroundStyle(.secondary)
-                .accessibilityHint(wallpaper.snapshotError ?? "没有可用的预览")
+                .accessibilityHint(wallpaper.snapshotError ?? "No preview available")
             }
         }
         .frame(width: 62, height: 88)
@@ -181,7 +190,7 @@ private struct SystemWallpaperSnapshot: View {
             RoundedRectangle(cornerRadius: 10)
                 .stroke(.separator, lineWidth: 0.5)
         }
-        .accessibilityLabel("\(wallpaper.name) 的系统壁纸快照")
+        .accessibilityLabel("\(wallpaper.name)'s system wallpaper snapshot")
     }
 }
 

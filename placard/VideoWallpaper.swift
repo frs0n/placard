@@ -86,20 +86,20 @@ enum VideoInstallState: Equatable, Sendable {
     var message: String {
         switch self {
         case .idle: ""
-        case .inspecting: "正在检查视频…"
-        case .generating: "正在生成动态壁纸…"
-        case .locatingPosterBoard: "正在准备…"
-        case .writing: "正在安装…"
-        case .preparingRespring: "即将刷新屏幕…"
-        case .respringing: "正在刷新屏幕…"
+        case .inspecting: String(localized: "Checking video…")
+        case .generating: String(localized: "Creating video wallpaper…")
+        case .locatingPosterBoard: String(localized: "Preparing…")
+        case .writing: String(localized: "Installing…")
+        case .preparingRespring: String(localized: "Preparing to refresh screen…")
+        case .respringing: String(localized: "Refreshing screen…")
         case .failure(let message): message
         }
     }
 
     var buttonTitle: String {
         switch self {
-        case .idle, .failure: "安装壁纸"
-        default: "处理中…"
+        case .idle, .failure: String(localized: "Install Wallpaper")
+        default: String(localized: "Processing…")
         }
     }
 }
@@ -430,12 +430,12 @@ enum VideoWallpaperError: LocalizedError {
 
     var errorDescription: String? {
         switch self {
-        case .deviceRequired: "请在真机上安装壁纸。"
-        case .unsupportedSystem: "当前系统版本不受支持。"
-        case .invalidVideo: "无法读取这个视频。"
-        case .videoTooLong(let seconds): "视频不能超过 \(Int(seconds)) 秒。"
-        case .tooManyFrames(let count): "视频帧数过多，请控制在 \(count) 帧以内。"
-        case .frameEncodingFailed: "生成动态壁纸失败。"
+        case .deviceRequired: String(localized: "Please install wallpapers on a physical device.")
+        case .unsupportedSystem: String(localized: "This system version is not supported.")
+        case .invalidVideo: String(localized: "This video can't be read.")
+        case .videoTooLong(let seconds): String(localized: "The video can't be longer than \(Int(seconds)) seconds.")
+        case .tooManyFrames(let count): String(localized: "The video has too many frames. Keep it within \(count) frames.")
+        case .frameEncodingFailed: String(localized: "Failed to create the video wallpaper.")
         }
     }
 }
@@ -445,57 +445,32 @@ struct VideoWallpaperDetailView: View {
 
     let draft: VideoWallpaperDraft
 
-    @State private var name = "视频壁纸"
+    @State private var name = String(localized: "Video Wallpaper")
     @State private var autoReverses = false
     @State private var installer = VideoInstallCoordinator()
 
     var body: some View {
         NavigationStack {
-            ScrollView {
-                VStack(spacing: 20) {
-                    LoopingVideoPreview(url: draft.url)
-                        .aspectRatio(0.56, contentMode: .fit)
-                        .frame(maxWidth: 420)
-                        .clipShape(.rect(cornerRadius: 24))
-                        .overlay {
-                            RoundedRectangle(cornerRadius: 24)
-                                .stroke(.separator, lineWidth: 0.5)
-                        }
-
-                    VStack(spacing: 0) {
-                        TextField("壁纸名称", text: $name)
-                            .textInputAutocapitalization(.never)
-                            .padding(16)
-
-                        Divider().padding(.leading, 16)
-
-                        Toggle(isOn: $autoReverses) {
-                            VStack(alignment: .leading, spacing: 3) {
-                                Text("往返播放")
-                                Text("循环时反向播放，衔接更自然")
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
-                            }
-                        }
-                        .padding(16)
-                    }
-                    .background(.quaternary.opacity(0.55), in: .rect(cornerRadius: 16))
-
-                    Text("视频最长 12 秒，生成时可能需要一点时间。")
-                        .font(.footnote)
-                        .foregroundStyle(.secondary)
-                        .frame(maxWidth: .infinity, alignment: .leading)
+            Form {
+                Section {
+                    VideoWallpaperHero(url: draft.url, name: displayName)
+                        .listRowInsets(.init())
+                        .listRowBackground(Color.clear)
+                        .listRowSeparator(.hidden)
                 }
-                .padding(16)
+
+                VideoWallpaperOptions(name: $name, autoReverses: $autoReverses)
             }
+            .formStyle(.grouped)
             .safeAreaInset(edge: .bottom) {
                 videoInstallBar
             }
-            .navigationTitle("视频壁纸")
+            .background(Color(uiColor: .systemBackground).ignoresSafeArea())
+            .navigationTitle("Preview")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("完成") { dismiss() }
+                    Button("Done") { dismiss() }
                         .disabled(installer.state.isWorking)
                 }
             }
@@ -506,6 +481,11 @@ struct VideoWallpaperDetailView: View {
                 NeoSpringView().ignoresSafeArea().transition(.opacity)
             }
         }
+    }
+
+    private var displayName: String {
+        let trimmedName = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmedName.isEmpty ? String(localized: "Video Wallpaper") : trimmedName
     }
 
     private var videoInstallBar: some View {
@@ -529,18 +509,106 @@ struct VideoWallpaperDetailView: View {
                 let trimmedName = name.trimmingCharacters(in: .whitespacesAndNewlines)
                 installer.install(
                     url: draft.url,
-                    name: trimmedName.isEmpty ? "视频壁纸" : trimmedName,
+                    name: trimmedName.isEmpty ? String(localized: "Video Wallpaper") : trimmedName,
                     autoReverses: autoReverses
                 )
             } label: {
-                Text(installer.state.buttonTitle).frame(maxWidth: .infinity)
+                Label(
+                    installer.state.buttonTitle,
+                    systemImage: installer.state.isWorking
+                        ? "hourglass"
+                        : "arrow.down.circle.fill"
+                )
+                .frame(maxWidth: .infinity)
             }
-            .buttonStyle(.borderedProminent)
+            .buttonStyle(.glassProminent)
             .controlSize(.large)
             .disabled(installer.state.isWorking)
+
+            if installer.state == .idle || installer.state.isTerminal {
+                Text("The screen will briefly refresh after installation.")
+                    .font(.caption2)
+                    .foregroundStyle(.tertiary)
+                    .frame(maxWidth: .infinity)
+            }
         }
-        .padding(16)
-        .background(.bar)
+        .padding(.horizontal, 16)
+        .padding(.top, 10)
+        .padding(.bottom, 8)
+        .background {
+            LinearGradient(
+                colors: [
+                    .clear,
+                    Color(uiColor: .systemBackground).opacity(0.88),
+                    Color(uiColor: .systemBackground)
+                ],
+                startPoint: .top,
+                endPoint: .bottom
+            )
+            .padding(.top, -36)
+            .ignoresSafeArea(edges: .bottom)
+        }
+    }
+}
+
+private struct VideoWallpaperHero: View {
+    let url: URL
+    let name: String
+
+    var body: some View {
+        LoopingVideoPreview(url: url)
+            .aspectRatio(0.56, contentMode: .fit)
+            .frame(maxWidth: 420)
+            .frame(maxWidth: .infinity)
+            .overlay {
+                LinearGradient(
+                    colors: [.clear, .clear, .black.opacity(0.82)],
+                    startPoint: .top,
+                    endPoint: .bottom
+                )
+            }
+            .overlay(alignment: .bottomLeading) {
+                VStack(alignment: .leading, spacing: 5) {
+                    Text(name)
+                        .font(.title2.weight(.bold))
+                        .foregroundStyle(.white)
+                        .lineLimit(2)
+
+                    Label("Animated Wallpaper", systemImage: "play.circle.fill")
+                        .font(.subheadline)
+                        .foregroundStyle(.white.opacity(0.72))
+                }
+                .padding(20)
+            }
+            .clipShape(.rect(cornerRadius: 28))
+            .overlay {
+                RoundedRectangle(cornerRadius: 28)
+                    .stroke(.white.opacity(0.16), lineWidth: 0.5)
+            }
+            .shadow(color: .black.opacity(0.35), radius: 24, y: 12)
+            .accessibilityElement(children: .combine)
+    }
+}
+
+private struct VideoWallpaperOptions: View {
+    @Binding var name: String
+    @Binding var autoReverses: Bool
+
+    var body: some View {
+        Section {
+            LabeledContent {
+                TextField("Video Wallpaper", text: $name)
+                    .multilineTextAlignment(.trailing)
+            } label: {
+                Label("Name", systemImage: "textformat")
+            }
+
+            Toggle(isOn: $autoReverses) {
+                Label("Ping-Pong Playback", systemImage: "repeat")
+            }
+        } footer: {
+            Text("Videos can be up to 12 seconds. Ping-pong playback reverses at each loop for a smoother transition.")
+        }
     }
 }
 

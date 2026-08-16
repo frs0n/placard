@@ -11,21 +11,30 @@ struct PlacardApp: App {
 }
 
 struct PlacardRootView: View {
+    @State private var selection: AppTab = .browse
+
     var body: some View {
-        TabView {
-            Tab("浏览", systemImage: "square.grid.2x2") {
+        TabView(selection: $selection) {
+            Tab("Browse", systemImage: "square.grid.2x2", value: .browse) {
                 WallpaperBrowserView()
             }
 
-            Tab("自定义", systemImage: "wand.and.stars") {
+            Tab("Create", systemImage: "plus", value: .create) {
                 CustomWallpaperView()
             }
 
-            Tab("管理", systemImage: "rectangle.stack") {
+            Tab("Library", systemImage: "rectangle.stack", value: .library) {
                 InstalledWallpapersView()
             }
         }
+        .tint(.accentColor)
     }
+}
+
+private enum AppTab: Hashable {
+    case browse
+    case create
+    case library
 }
 
 struct WallpaperBrowserView: View {
@@ -36,8 +45,7 @@ struct WallpaperBrowserView: View {
     @State private var query = ""
     @State private var sortOrder: WallpaperSortOrder = .random
     @State private var ordered: [Wallpaper] = []
-    @State private var selectedWallpaper: SelectedWallpaper?
-    @State private var installer = InstallCoordinator()
+    @State private var loadedCategory: WallpaperCategory?
 
     init(catalog: WallpaperCatalog = .live) {
         self.catalog = catalog
@@ -58,11 +66,11 @@ struct WallpaperBrowserView: View {
         switch loadState {
         case .failed(let message):
             ContentUnavailableView {
-                Label("无法加载", systemImage: "wifi.exclamationmark")
+                Label("Unable to Load", systemImage: "wifi.exclamationmark")
             } description: {
                 Text(message)
             } actions: {
-                Button("重试") { Task { await load() } }
+                Button("Retry") { Task { await load(category) } }
             }
         case .loaded where displayedWallpapers.isEmpty:
             ContentUnavailableView.search(text: query)
@@ -74,63 +82,48 @@ struct WallpaperBrowserView: View {
     var body: some View {
         NavigationStack {
             ScrollView {
-                Picker("分类", selection: $category) {
-                    ForEach(WallpaperCategory.allCases) { category in
-                        Text(category.title).tag(category)
-                    }
-                }
-                .pickerStyle(.segmented)
-                .padding(.horizontal, 16)
-                .padding(.bottom, 8)
-
                 switch loadState {
                 case .idle, .loading:
                     WallpaperLoadingGrid(showsAuthor: category != .apple)
                 case .loaded where !displayedWallpapers.isEmpty:
                     WallpaperGrid(
                         wallpapers: displayedWallpapers,
-                        showsAuthor: category != .apple,
-                        onSelect: select
+                        showsAuthor: category != .apple
                     )
                 default:
                     EmptyView()
                 }
             }
             .overlay { unavailableOverlay }
-            .navigationTitle("壁纸")
+            .navigationTitle(category.title)
             .toolbar {
+                ToolbarItem(placement: .principal) {
+                    Picker("Category", selection: $category) {
+                        ForEach(WallpaperCategory.allCases) { category in
+                            Text(category.title).tag(category)
+                        }
+                    }
+                    .pickerStyle(.segmented)
+                    .frame(width: 190)
+                }
+
                 ToolbarItem(placement: .topBarTrailing) {
                     Menu {
-                        Picker("排序方式", selection: $sortOrder) {
+                        Picker("Sort", selection: $sortOrder) {
                             ForEach(WallpaperSortOrder.allCases) { order in
                                 Label(order.title, systemImage: order.symbol).tag(order)
                             }
                         }
                     } label: {
-                        Label("排序方式", systemImage: "arrow.up.arrow.down")
+                        Label("Sort", systemImage: "arrow.up.arrow.down")
                     }
                 }
             }
             .onChange(of: sortOrder) { _, _ in applyOrder() }
-            .searchable(text: $query, prompt: "搜索")
+            .searchable(text: $query, prompt: "Search")
             .refreshable { await refresh() }
-            .task(id: category) { await load() }
-            .sheet(item: $selectedWallpaper) { selection in
-                WallpaperDetailView(
-                    wallpaper: selection.wallpaper,
-                    showsAuthor: selection.showsAuthor,
-                    installer: installer
-                )
-            }
+            .task(id: category) { await loadIfNeeded(category) }
         }
-    }
-
-    private func select(_ wallpaper: Wallpaper) {
-        installer.reset()
-        selectedWallpaper = SelectedWallpaper(
-            wallpaper: wallpaper,
-            showsAuthor: category != .apple
-        )
     }
 
     private func applyOrder() {
@@ -139,22 +132,29 @@ struct WallpaperBrowserView: View {
     }
 
     /// Initial load / category change: show the loading grid, then fetch.
-    private func load() async {
+    private func loadIfNeeded(_ targetCategory: WallpaperCategory) async {
+        guard loadedCategory != targetCategory else { return }
+        await load(targetCategory)
+    }
+
+    private func load(_ targetCategory: WallpaperCategory) async {
         loadState = .loading
         ordered = []
-        await fetch()
+        await fetch(targetCategory)
     }
 
     /// Pull to refresh: keep the current content on screen while fetching so
     /// swapping to a loading state doesn't cancel the refresh task mid-request.
     private func refresh() async {
-        await fetch()
+        await fetch(category)
     }
 
-    private func fetch() async {
+    private func fetch(_ targetCategory: WallpaperCategory) async {
         do {
-            let wallpapers = try await catalog.fetch(category)
+            let wallpapers = try await catalog.fetch(targetCategory)
+            guard targetCategory == category else { return }
             loadState = .loaded(wallpapers)
+            loadedCategory = targetCategory
             applyOrder()
         } catch is CancellationError {
             return
@@ -178,13 +178,6 @@ private enum CatalogLoadState: Equatable {
 
 }
 
-private struct SelectedWallpaper: Identifiable {
-    let wallpaper: Wallpaper
-    let showsAuthor: Bool
-
-    var id: String { wallpaper.id }
-}
-
 struct CustomWallpaperView: View {
     @State private var selectedVideo: PhotosPickerItem?
     @State private var draft: VideoWallpaperDraft?
@@ -194,40 +187,25 @@ struct CustomWallpaperView: View {
 
     var body: some View {
         NavigationStack {
-            VStack(spacing: 24) {
-                Spacer()
-
-                Image(systemName: "video.badge.plus")
-                    .font(.system(size: 56))
-                    .foregroundStyle(.tint)
-                    .symbolRenderingMode(.hierarchical)
-
-                VStack(spacing: 8) {
-                    Text("视频动态壁纸")
-                        .font(.title2.weight(.semibold))
-                    Text("把你的视频变成锁定屏幕的动态壁纸。")
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
-                        .multilineTextAlignment(.center)
-                }
-
-                Spacer()
-
-                VStack(spacing: 12) {
+            ContentUnavailableView {
+                Label("Create Video Wallpaper", systemImage: "video.badge.plus")
+            } description: {
+                Text("Choose a vertical video to turn into a Lock Screen wallpaper.")
+            } actions: {
+                VStack(spacing: 10) {
                     PhotosPicker(selection: $selectedVideo, matching: .videos) {
-                        Text("选择视频").frame(maxWidth: .infinity)
+                        Label("Choose Video", systemImage: "photo.on.rectangle")
                     }
-                    .buttonStyle(.borderedProminent)
+                    .buttonStyle(.glassProminent)
                     .controlSize(.large)
                     .disabled(isImportingVideo)
 
-                    Text("最长 12 秒，建议使用竖屏视频")
-                        .font(.footnote)
+                    Text("Up to 12 seconds")
+                        .font(.caption)
                         .foregroundStyle(.secondary)
                 }
             }
-            .padding(24)
-            .navigationTitle("自定义")
+            .navigationTitle("Create")
             .onChange(of: selectedVideo) { _, item in
                 guard let item else { return }
                 importVideo(item)
@@ -236,22 +214,23 @@ struct CustomWallpaperView: View {
                 VideoWallpaperDetailView(draft: draft)
             }
             .alert(
-                "无法导入视频",
+                "Unable to Import Video",
                 isPresented: .init(
                     get: { videoImportError != nil },
                     set: { if !$0 { videoImportError = nil } }
                 ),
                 presenting: videoImportError
             ) { _ in
-                Button("好", role: .cancel) { videoImportError = nil }
+                Button("OK", role: .cancel) { videoImportError = nil }
             } message: {
                 Text($0)
             }
             .overlay {
                 if isImportingVideo {
-                    ProgressView("正在导入…")
-                        .padding(20)
-                        .background(.regularMaterial, in: .rect(cornerRadius: 16))
+                    ProgressView("Importing…")
+                        .padding(.horizontal, 20)
+                        .padding(.vertical, 14)
+                        .glassEffect(.regular, in: .rect(cornerRadius: 18))
                 }
             }
         }

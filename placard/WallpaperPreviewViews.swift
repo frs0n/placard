@@ -5,30 +5,48 @@ import UIKit
 struct WallpaperGrid: View {
     let wallpapers: [Wallpaper]
     let showsAuthor: Bool
-    let onSelect: (Wallpaper) -> Void
+    @Namespace private var transitionNamespace
+    @State private var selectedWallpaper: Wallpaper?
 
-    private let columns = [GridItem(.adaptive(minimum: 164), spacing: 12)]
+    private let columns = [GridItem(.adaptive(minimum: 164, maximum: 260), spacing: 16)]
 
     var body: some View {
         LazyVGrid(columns: columns, spacing: 12) {
             ForEach(wallpapers) { wallpaper in
                 Button {
-                    onSelect(wallpaper)
+                    selectedWallpaper = wallpaper
                 } label: {
-                    WallpaperCard(wallpaper: wallpaper, showsAuthor: showsAuthor)
+                    WallpaperCard(
+                        wallpaper: wallpaper,
+                        showsAuthor: showsAuthor,
+                        transitionNamespace: transitionNamespace
+                    )
                 }
                 .buttonStyle(.plain)
-                .accessibilityHint("查看壁纸")
+                .accessibilityHint("Open preview")
             }
         }
-        .padding(16)
+        .padding(.horizontal, 16)
+        .padding(.vertical, 12)
+        .fullScreenCover(item: $selectedWallpaper) { wallpaper in
+            NavigationStack {
+                WallpaperDetailView(
+                    wallpaper: wallpaper,
+                    showsAuthor: showsAuthor,
+                    transitionNamespace: transitionNamespace
+                )
+            }
+            .navigationTransition(
+                .zoom(sourceID: wallpaper.id, in: transitionNamespace)
+            )
+        }
     }
 }
 
 struct WallpaperLoadingGrid: View {
     let showsAuthor: Bool
 
-    private let columns = [GridItem(.adaptive(minimum: 164), spacing: 12)]
+    private let columns = [GridItem(.adaptive(minimum: 164, maximum: 260), spacing: 16)]
 
     var body: some View {
         LazyVGrid(columns: columns, spacing: 12) {
@@ -36,7 +54,8 @@ struct WallpaperLoadingGrid: View {
                 WallpaperCard(wallpaper: .placeholder, showsAuthor: showsAuthor)
             }
         }
-        .padding(16)
+        .padding(.horizontal, 16)
+        .padding(.vertical, 12)
         .redacted(reason: .placeholder)
         .allowsHitTesting(false)
     }
@@ -45,10 +64,32 @@ struct WallpaperLoadingGrid: View {
 struct WallpaperCard: View {
     let wallpaper: Wallpaper
     let showsAuthor: Bool
+    var transitionNamespace: Namespace.ID?
+
+    init(
+        wallpaper: Wallpaper,
+        showsAuthor: Bool,
+        transitionNamespace: Namespace.ID? = nil
+    ) {
+        self.wallpaper = wallpaper
+        self.showsAuthor = showsAuthor
+        self.transitionNamespace = transitionNamespace
+    }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: 9) {
             RemoteWallpaperPreview(url: wallpaper.previewURL, aspectRatio: 0.72)
+                .clipShape(.rect(cornerRadius: 18))
+                .overlay {
+                    RoundedRectangle(cornerRadius: 18)
+                        .stroke(.separator.opacity(0.35), lineWidth: 0.5)
+                }
+                .modifier(
+                    WallpaperTransitionSource(
+                        id: wallpaper.id,
+                        namespace: transitionNamespace
+                    )
+                )
 
             VStack(alignment: .leading, spacing: 3) {
                 Text(wallpaper.name)
@@ -57,17 +98,28 @@ struct WallpaperCard: View {
                     .lineLimit(1)
 
                 if showsAuthor {
-                    Text(wallpaper.authors ?? "未知作者")
+                    Text(wallpaper.authors ?? "Unknown Author")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                         .lineLimit(1)
                 }
             }
-            .padding(.horizontal, 12)
-            .padding(.bottom, 12)
         }
-        .background(.quaternary.opacity(0.55), in: .rect(cornerRadius: 16))
-        .clipShape(.rect(cornerRadius: 16))
+        .contentShape(.rect)
+    }
+}
+
+private struct WallpaperTransitionSource: ViewModifier {
+    let id: String
+    let namespace: Namespace.ID?
+
+    @ViewBuilder
+    func body(content: Content) -> some View {
+        if let namespace {
+            content.matchedTransitionSource(id: id, in: namespace)
+        } else {
+            content
+        }
     }
 }
 

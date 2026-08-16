@@ -8,7 +8,7 @@ enum WallpaperCategory: String, CaseIterable, Identifiable, Sendable {
 
     var title: String {
         switch self {
-        case .custom: String(localized: "Interactive Wallpapers")
+        case .custom: String(localized: "Interactive")
         case .apple: "Apple"
         }
     }
