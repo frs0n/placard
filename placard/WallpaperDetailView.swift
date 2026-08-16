@@ -88,7 +88,7 @@ private struct WallpaperHero: View {
 
     var body: some View {
         RemoteWallpaperPreview(
-            urls: wallpaper.previewURLs,
+            url: wallpaper.previewURL,
             aspectRatio: 0.72,
             playback: .animated
         )
