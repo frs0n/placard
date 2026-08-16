@@ -63,20 +63,20 @@ enum InstallState: Equatable, Sendable {
     var message: String {
         switch self {
         case .idle: ""
-        case .downloading: "正在下载…"
-        case .unpacking: "正在解压…"
-        case .locatingPosterBoard: "正在准备…"
-        case .writing: "正在安装…"
-        case .preparingRespring: "即将刷新屏幕…"
-        case .respringing: "正在刷新屏幕…"
+        case .downloading: String(localized: "Downloading…")
+        case .unpacking: String(localized: "Unpacking…")
+        case .locatingPosterBoard: String(localized: "Preparing…")
+        case .writing: String(localized: "Installing…")
+        case .preparingRespring: String(localized: "Preparing to refresh screen…")
+        case .respringing: String(localized: "Refreshing screen…")
         case .failure(let message): message
         }
     }
 
     var buttonTitle: String {
         switch self {
-        case .idle, .failure: "安装壁纸"
-        default: "安装中…"
+        case .idle, .failure: String(localized: "Install Wallpaper")
+        default: String(localized: "Installing…")
         }
     }
 
@@ -285,13 +285,13 @@ enum InstallError: LocalizedError {
 
     var errorDescription: String? {
         switch self {
-        case .deviceRequired: "请在真机上安装壁纸。"
-        case .unsupportedSystem: "当前系统版本不受支持。"
-        case .invalidDownloadURL: "下载地址无效。"
-        case .downloadFailed: "下载失败，请稍后再试。"
-        case .packageTooLarge: "壁纸包为空或过大。"
-        case .invalidPackage: "壁纸包无效或已损坏。"
-        case .noDescriptors: "壁纸包中没有可安装的内容。"
+        case .deviceRequired: String(localized: "Please install wallpapers on a physical device.")
+        case .unsupportedSystem: String(localized: "This system version is not supported.")
+        case .invalidDownloadURL: String(localized: "The download URL is invalid.")
+        case .downloadFailed: String(localized: "Download failed. Please try again later.")
+        case .packageTooLarge: String(localized: "The wallpaper package is empty or too large.")
+        case .invalidPackage: String(localized: "The wallpaper package is invalid or damaged.")
+        case .noDescriptors: String(localized: "The wallpaper package contains no installable content.")
         }
     }
 }

@@ -21,19 +21,19 @@ struct InstalledWallpaper: Identifiable, Equatable, Sendable {
     var kindTitle: String { Self.kindTitle(for: providerIdentifier) }
 
     nonisolated static func defaultName(for provider: String) -> String {
-        "\(kindTitle(for: provider))壁纸"
+        String(format: String(localized: "%@ Wallpaper"), kindTitle(for: provider))
     }
 
     nonisolated private static func kindTitle(for provider: String) -> String {
         switch provider {
-        case "com.apple.PhotosUIPrivate.PhotosPosterProvider": "照片"
-        case "com.apple.WallpaperKit.CollectionsPoster": "精选"
-        case "com.apple.GradientPoster.GradientPosterExtension": "颜色"
-        case "com.apple.EmojiPoster.EmojiPosterExtension": "表情符号"
-        case "com.apple.MercuryPoster": "天文"
-        case let value where value.localizedCaseInsensitiveContains("weather"): "天气"
-        case let value where value.localizedCaseInsensitiveContains("pride"): "彩虹"
-        case let value where value.localizedCaseInsensitiveContains("unity"): "团结"
+        case "com.apple.PhotosUIPrivate.PhotosPosterProvider": String(localized: "Photos")
+        case "com.apple.WallpaperKit.CollectionsPoster": String(localized: "Featured")
+        case "com.apple.GradientPoster.GradientPosterExtension": String(localized: "Color")
+        case "com.apple.EmojiPoster.EmojiPosterExtension": String(localized: "Emoji")
+        case "com.apple.MercuryPoster": String(localized: "Astronomy")
+        case let value where value.localizedCaseInsensitiveContains("weather"): String(localized: "Weather")
+        case let value where value.localizedCaseInsensitiveContains("pride"): String(localized: "Pride")
+        case let value where value.localizedCaseInsensitiveContains("unity"): String(localized: "Unity")
         default: "iOS"
         }
     }

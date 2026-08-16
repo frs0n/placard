@@ -8,7 +8,7 @@ enum WallpaperCategory: String, CaseIterable, Identifiable, Sendable {
 
     var title: String {
         switch self {
-        case .custom: "互动"
+        case .custom: String(localized: "Interactive Wallpapers")
         case .apple: "Apple"
         }
     }
@@ -23,9 +23,9 @@ enum WallpaperSortOrder: String, CaseIterable, Identifiable, Sendable {
 
     var title: String {
         switch self {
-        case .random: "随机"
-        case .newest: "最新"
-        case .oldest: "最早"
+        case .random: String(localized: "Random")
+        case .newest: String(localized: "Newest")
+        case .oldest: String(localized: "Oldest")
         }
     }
 
@@ -126,5 +126,5 @@ struct WallpaperCatalog: Sendable {
 enum CatalogError: LocalizedError {
     case invalidResponse
 
-    var errorDescription: String? { "暂时无法获取壁纸，请稍后再试。" }
+    var errorDescription: String? { String(localized: "Wallpapers are currently unavailable. Please try again later.") }
 }
