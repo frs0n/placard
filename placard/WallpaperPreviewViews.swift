@@ -126,6 +126,17 @@ private struct WallpaperTransitionSource: ViewModifier {
 struct RemoteWallpaperPreview: View {
     let url: URL
     let aspectRatio: CGFloat
+    let playback: PreviewPlayback
+
+    init(
+        url: URL,
+        aspectRatio: CGFloat,
+        playback: PreviewPlayback = .thumbnail
+    ) {
+        self.url = url
+        self.aspectRatio = aspectRatio
+        self.playback = playback
+    }
 
     @State private var image: UIImage?
     @State private var didFail = false
@@ -136,7 +147,7 @@ struct RemoteWallpaperPreview: View {
             .aspectRatio(aspectRatio, contentMode: .fit)
             .overlay {
                 if let image {
-                    AnimatedImageView(image: image)
+                    AnimatedImageView(image: image, animates: playback == .animated)
                 } else if didFail {
                     Image(systemName: "photo")
                         .font(.title2)
@@ -150,13 +161,13 @@ struct RemoteWallpaperPreview: View {
     }
 
     private func load() async {
-        if let cached = AnimatedImageLoader.cached(url) {
+        if let cached = AnimatedImageLoader.cached(url, playback: playback) {
             image = cached
             return
         }
         image = nil
         didFail = false
-        let loaded = await AnimatedImageLoader.load(url)
+        let loaded = await AnimatedImageLoader.load(url, playback: playback)
         guard !Task.isCancelled else { return }
         withAnimation(.easeOut(duration: 0.2)) {
             if let loaded {
@@ -168,10 +179,18 @@ struct RemoteWallpaperPreview: View {
     }
 }
 
+enum PreviewPlayback: Sendable {
+    /// Cheap, downsampled stills for scrolling collections.
+    case thumbnail
+    /// Full animation is reserved for the single image shown in the detail view.
+    case animated
+}
+
 /// Displays a (possibly animated) `UIImage`. `UIImageView` loops animated
 /// images automatically, which SwiftUI's `Image`/`AsyncImage` do not.
 private struct AnimatedImageView: UIViewRepresentable {
     let image: UIImage
+    let animates: Bool
 
     func makeUIView(context: Context) -> UIImageView {
         let view = UIImageView()
@@ -186,54 +205,94 @@ private struct AnimatedImageView: UIViewRepresentable {
 
     func updateUIView(_ uiView: UIImageView, context: Context) {
         uiView.image = image
+        if animates {
+            uiView.startAnimating()
+        } else {
+            uiView.stopAnimating()
+        }
     }
 }
 
 enum AnimatedImageLoader {
-    private static let cache: NSCache<NSURL, UIImage> = {
-        let cache = NSCache<NSURL, UIImage>()
-        cache.countLimit = 60
-        return cache
-    }()
+    nonisolated private static let cache = ImageCache()
 
-    static func cached(_ url: URL) -> UIImage? {
-        cache.object(forKey: url as NSURL)
+    nonisolated static func cached(_ url: URL, playback: PreviewPlayback) -> UIImage? {
+        cache.image(for: cacheKey(for: url, playback: playback))
     }
 
-    static func load(_ url: URL) async -> UIImage? {
-        if let cached = cached(url) { return cached }
+    nonisolated static func load(_ url: URL, playback: PreviewPlayback) async -> UIImage? {
+        if let cached = cached(url, playback: playback) { return cached }
         do {
             var request = URLRequest(url: url)
             request.cachePolicy = .returnCacheDataElseLoad
             let (data, _) = try await URLSession.shared.data(for: request)
-            guard let image = decode(data) else { return nil }
-            cache.setObject(image, forKey: url as NSURL)
+            guard !Task.isCancelled else { return nil }
+            let image = await Task.detached(priority: .utility) {
+                decode(data, playback: playback)
+            }.value
+            guard let image, !Task.isCancelled else { return nil }
+            cache.insert(image, for: cacheKey(for: url, playback: playback))
             return image
         } catch {
             return nil
         }
     }
 
-    private static func decode(_ data: Data) -> UIImage? {
+    nonisolated private static func cacheKey(for url: URL, playback: PreviewPlayback) -> NSString {
+        "\(url.absoluteString)#\(cacheSuffix(for: playback))" as NSString
+    }
+
+    nonisolated private static func cacheSuffix(for playback: PreviewPlayback) -> String {
+        switch playback {
+        case .thumbnail: "thumbnail"
+        case .animated: "animated"
+        }
+    }
+
+    nonisolated private static func isAnimated(_ playback: PreviewPlayback) -> Bool {
+        switch playback {
+        case .thumbnail: false
+        case .animated: true
+        }
+    }
+
+    nonisolated private static func decode(_ data: Data, playback: PreviewPlayback) -> UIImage? {
         guard let source = CGImageSourceCreateWithData(data as CFData, nil) else {
             return UIImage(data: data)
         }
         let count = CGImageSourceGetCount(source)
-        guard count > 1 else { return UIImage(data: data) }
+        guard isAnimated(playback), count > 1 else {
+            return thumbnail(source: source)
+        }
 
         var frames: [UIImage] = []
         var duration = 0.0
         for index in 0..<count {
-            guard let cgImage = CGImageSourceCreateImageAtIndex(source, index, nil) else { continue }
+            guard let cgImage = CGImageSourceCreateThumbnailAtIndex(source, index, thumbnailOptions) else { continue }
             duration += frameDelay(source: source, index: index)
             frames.append(UIImage(cgImage: cgImage))
         }
-        guard frames.count > 1 else { return UIImage(data: data) }
+        guard frames.count > 1 else { return thumbnail(source: source) }
         if duration <= 0 { duration = Double(frames.count) / 30.0 }
         return UIImage.animatedImage(with: frames, duration: duration)
     }
 
-    private static func frameDelay(source: CGImageSource, index: Int) -> Double {
+    nonisolated private static var thumbnailOptions: CFDictionary {
+        [
+            kCGImageSourceCreateThumbnailFromImageAlways: true,
+            kCGImageSourceCreateThumbnailWithTransform: true,
+            kCGImageSourceThumbnailMaxPixelSize: 1_200
+        ] as CFDictionary
+    }
+
+    nonisolated private static func thumbnail(source: CGImageSource) -> UIImage? {
+        guard let cgImage = CGImageSourceCreateThumbnailAtIndex(source, 0, thumbnailOptions) else {
+            return nil
+        }
+        return UIImage(cgImage: cgImage)
+    }
+
+    nonisolated private static func frameDelay(source: CGImageSource, index: Int) -> Double {
         guard let properties = CGImageSourceCopyPropertiesAtIndex(source, index, nil) as? [CFString: Any],
               let gif = properties[kCGImagePropertyGIFDictionary] as? [CFString: Any] else {
             return 0.1
@@ -245,5 +304,21 @@ enum AnimatedImageLoader {
             return delay
         }
         return 0.1
+    }
+}
+
+nonisolated private final class ImageCache: @unchecked Sendable {
+    private let values = NSCache<NSString, UIImage>()
+
+    init() {
+        values.countLimit = 60
+    }
+
+    func image(for key: NSString) -> UIImage? {
+        values.object(forKey: key)
+    }
+
+    func insert(_ image: UIImage, for key: NSString) {
+        values.setObject(image, forKey: key)
     }
 }

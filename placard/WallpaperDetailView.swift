@@ -62,7 +62,11 @@ private struct WallpaperHero: View {
     let showsAuthor: Bool
 
     var body: some View {
-        RemoteWallpaperPreview(url: wallpaper.previewURL, aspectRatio: 0.72)
+        RemoteWallpaperPreview(
+            url: wallpaper.previewURL,
+            aspectRatio: 0.72,
+            playback: .animated
+        )
             .overlay {
                 LinearGradient(
                     colors: [.clear, .clear, .black.opacity(0.82)],
