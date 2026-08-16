@@ -124,8 +124,9 @@ private actor WallpaperInstaller {
         throw InstallError.deviceRequired
         #else
         guard BadQuery.isAvailable else { throw InstallError.unsupportedSystem }
-        guard wallpaper.downloadURL.scheme == "https",
-              wallpaper.downloadURL.pathExtension.lowercased() == "tendies" else {
+        guard wallpaper.downloadURLs.allSatisfy({
+            $0.scheme == "https" && $0.pathExtension.lowercased() == "tendies"
+        }) else {
             throw InstallError.invalidDownloadURL
         }
 
@@ -135,7 +136,7 @@ private actor WallpaperInstaller {
         defer { try? fileManager.removeItem(at: workspace) }
 
         await progress(.downloading)
-        let packageURL = try await download(wallpaper.downloadURL, into: workspace)
+        let packageURL = try await download(wallpaper.downloadURLs, into: workspace)
         try Task.checkCancellation()
 
         await progress(.unpacking)
@@ -227,24 +228,33 @@ private actor WallpaperInstaller {
         return destination
     }
 
-    private func download(_ remoteURL: URL, into workspace: URL) async throws -> URL {
-        var request = URLRequest(url: remoteURL)
-        request.timeoutInterval = 90
-        request.cachePolicy = .reloadIgnoringLocalCacheData
-        let (temporaryURL, response) = try await URLSession.shared.download(for: request)
-        guard let response = response as? HTTPURLResponse,
-              response.statusCode == 200 else {
-            throw InstallError.downloadFailed
-        }
+    private func download(_ remoteURLs: [URL], into workspace: URL) async throws -> URL {
+        for remoteURL in remoteURLs {
+            do {
+                var request = URLRequest(url: remoteURL)
+                request.timeoutInterval = 90
+                request.cachePolicy = .reloadIgnoringLocalCacheData
+                let (temporaryURL, response) = try await URLSession.shared.download(for: request)
+                guard let response = response as? HTTPURLResponse,
+                      response.statusCode == 200 else {
+                    continue
+                }
 
-        let fileSize = try temporaryURL.resourceValues(forKeys: [.fileSizeKey]).fileSize ?? 0
-        guard fileSize > 0, Int64(fileSize) <= maximumPackageBytes else {
-            throw InstallError.packageTooLarge
-        }
+                let fileSize = try temporaryURL.resourceValues(forKeys: [.fileSizeKey]).fileSize ?? 0
+                guard fileSize > 0, Int64(fileSize) <= maximumPackageBytes else {
+                    throw InstallError.packageTooLarge
+                }
 
-        let destination = workspace.appending(path: "wallpaper.tendies")
-        try fileManager.moveItem(at: temporaryURL, to: destination)
-        return destination
+                let destination = workspace.appending(path: "wallpaper.tendies")
+                try fileManager.moveItem(at: temporaryURL, to: destination)
+                return destination
+            } catch let error as InstallError {
+                throw error
+            } catch {
+                continue
+            }
+        }
+        throw InstallError.downloadFailed
     }
 
     private func extract(_ packageURL: URL, into workspace: URL) throws -> URL {

@@ -78,7 +78,7 @@ struct WallpaperCard: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 9) {
-            RemoteWallpaperPreview(url: wallpaper.previewURL, aspectRatio: 0.72)
+            RemoteWallpaperPreview(urls: wallpaper.previewURLs, aspectRatio: 0.72)
                 .clipShape(.rect(cornerRadius: 18))
                 .overlay {
                     RoundedRectangle(cornerRadius: 18)
@@ -124,16 +124,16 @@ private struct WallpaperTransitionSource: ViewModifier {
 }
 
 struct RemoteWallpaperPreview: View {
-    let url: URL
+    let urls: [URL]
     let aspectRatio: CGFloat
     let playback: PreviewPlayback
 
     init(
-        url: URL,
+        urls: [URL],
         aspectRatio: CGFloat,
         playback: PreviewPlayback = .thumbnail
     ) {
-        self.url = url
+        self.urls = urls
         self.aspectRatio = aspectRatio
         self.playback = playback
     }
@@ -157,17 +157,23 @@ struct RemoteWallpaperPreview: View {
                 }
             }
             .clipped()
-            .task(id: url) { await load() }
+            .task(id: urls) { await load() }
     }
 
     private func load() async {
-        if let cached = AnimatedImageLoader.cached(url, playback: playback) {
-            image = cached
-            return
+        for url in urls {
+            if let cached = AnimatedImageLoader.cached(url, playback: playback) {
+                image = cached
+                return
+            }
         }
         image = nil
         didFail = false
-        let loaded = await AnimatedImageLoader.load(url, playback: playback)
+        var loaded: UIImage?
+        for url in urls {
+            loaded = await AnimatedImageLoader.load(url, playback: playback)
+            if loaded != nil { break }
+        }
         guard !Task.isCancelled else { return }
         withAnimation(.easeOut(duration: 0.2)) {
             if let loaded {

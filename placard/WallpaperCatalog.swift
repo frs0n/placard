@@ -55,14 +55,21 @@ struct Wallpaper: Codable, Identifiable, Equatable, Sendable {
     let preview: String
     let authors: String?
     let contest: String?
+    private(set) var assetBaseURLs = WallpaperCatalog.assetBaseURLs
 
     var id: String { url }
-    nonisolated var downloadURL: URL { WallpaperCatalog.assetBaseURL.appending(path: url) }
-    nonisolated var previewURL: URL { WallpaperCatalog.assetBaseURL.appending(path: preview) }
+    nonisolated var downloadURLs: [URL] { assetBaseURLs.map { $0.appending(path: url) } }
+    nonisolated var previewURLs: [URL] { assetBaseURLs.map { $0.appending(path: preview) } }
 
     enum CodingKeys: String, CodingKey {
         case remoteID = "id"
         case name, description, url, preview, authors, contest
+    }
+
+    func preferring(_ baseURL: URL) -> Wallpaper {
+        var wallpaper = self
+        wallpaper.assetBaseURLs = [baseURL] + assetBaseURLs.filter { $0 != baseURL }
+        return wallpaper
     }
 
     nonisolated static let placeholder = Wallpaper(
@@ -87,22 +94,34 @@ struct Wallpaper: Codable, Identifiable, Equatable, Sendable {
 }
 
 struct WallpaperCatalog: Sendable {
-    nonisolated static let assetBaseURL = URL(string: "https://raw.githubusercontent.com/SerStars/nugget-wallpapers/main/")!
+    nonisolated static let proxyBaseURL = URL(string: "https://gh-proxy.com/https://raw.githubusercontent.com/SerStars/nugget-wallpapers/main/")!
+    nonisolated static let originBaseURL = URL(string: "https://raw.githubusercontent.com/SerStars/nugget-wallpapers/main/")!
+    nonisolated static let assetBaseURLs = [proxyBaseURL, originBaseURL]
 
     var fetch: @Sendable (WallpaperCategory) async throws -> [Wallpaper]
 
     static let live = WallpaperCatalog { category in
-        let url = assetBaseURL.appending(path: "wallpapers-\(category.rawValue).json")
-        var request = URLRequest(url: url)
-        request.timeoutInterval = 20
-        request.cachePolicy = .reloadRevalidatingCacheData
+        for baseURL in assetBaseURLs {
+            do {
+                let url = baseURL.appending(path: "wallpapers-\(category.rawValue).json")
+                var request = URLRequest(url: url)
+                request.timeoutInterval = 20
+                request.cachePolicy = .reloadRevalidatingCacheData
 
-        let (data, response) = try await URLSession.shared.data(for: request)
-        guard let response = response as? HTTPURLResponse,
-              response.statusCode == 200 else {
-            throw CatalogError.invalidResponse
+                let (data, response) = try await URLSession.shared.data(for: request)
+                guard let response = response as? HTTPURLResponse,
+                      response.statusCode == 200 else {
+                    continue
+                }
+                return try JSONDecoder().decode([Wallpaper].self, from: data)
+                    .map { $0.preferring(baseURL) }
+            } catch is DecodingError {
+                continue
+            } catch {
+                continue
+            }
         }
-        return try JSONDecoder().decode([Wallpaper].self, from: data)
+        throw CatalogError.invalidResponse
     }
 
     static let preview = WallpaperCatalog { _ in
