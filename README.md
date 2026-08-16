@@ -1,32 +1,57 @@
 # Placard
 
-Placard 是一款克制的 SwiftUI 本地互动壁纸写入器。当前阶段提供：
+Placard is an iOS app for browsing, creating, installing, and managing custom PosterBoard wallpapers.
 
-- 通过“浏览 / 自定义 / 管理”三个一级页面组织完整壁纸工作流
-- 浏览、搜索并预览 Pocket Poster 社区壁纸目录
-- 下载并检查 `.tendies` 壁纸包
-- 从照片图库导入最长 12 秒的视频，预览并转换成可循环或往返播放的 CAML 动态壁纸
-- 在受支持的 iOS 真机上通过 `bad_query` 直接写入 PosterBoard descriptors
-- 写入完成后通过 NeoSpring 刷新 SpringBoard，使 PosterBoard 重新载入壁纸
-- 从“已安装”管理页渲染并删除“精选”descriptor 或“我的壁纸”configuration
+## Features
 
-## 运行条件
+- Browse, search, sort, and preview community-made interactive wallpapers
+- Download and validate `.tendies` wallpaper packages
+- Turn a vertical video of up to 12 seconds into a looping or auto-reversing Lock Screen wallpaper
+- Install wallpapers directly into PosterBoard on supported physical devices
+- View and remove installed custom and featured wallpapers
+- Refresh SpringBoard after wallpaper changes with NeoSpring
+- English and Simplified Chinese localization
 
-- Xcode 26 或更新版本
-- iOS 26 或更新版本
-- 安装功能仅可在 `bad_query` 动态探测成功的真机系统上使用
+## Requirements
 
-首次真机运行前，请在 Xcode 的 Signing & Capabilities 中选择你自己的开发团队。
+- Xcode 26 or later
+- iOS 26 or later
+- A physical device on which `bad_query` is supported for installation and library management
 
-模拟器可用于浏览与界面调试，但不会尝试写入系统壁纸。
+The Simulator can be used to browse the catalog and develop the interface, but it cannot install or manage system wallpapers.
 
-## 致谢与许可
+## Building
 
-目录格式和 PosterBoard descriptor 安装流程基于
-[leminlimez/Pocket-Poster](https://github.com/leminlimez/Pocket-Poster)，sandbox extension 实现基于
-[forcequitOS/bad_query](https://github.com/forcequitOS/bad_query)。壁纸目录来自
-[SerStars/nugget-wallpapers](https://github.com/SerStars/nugget-wallpapers)。桌面刷新方案来自
-[rooootdev/neospring](https://github.com/rooootdev/neospring)。
+1. Clone this repository.
+2. Open `placard.xcodeproj` in Xcode.
+3. Select the **placard** target and choose your own development team under **Signing & Capabilities**.
+4. Build and run the app on your device.
 
-本项目按 GNU GPL v3 发布，详见 [LICENSE](LICENSE)。`bad_query` 与 `neospring`
-上游仓库目前未声明独立许可证；对外分发前请确认其授权条件。
+Swift Package Manager resolves [ZIPFoundation](https://github.com/weichsel/ZIPFoundation) automatically when the project is opened.
+
+## How it works
+
+Placard fetches the community wallpaper catalog, downloads the selected `.tendies` package, validates and extracts its PosterBoard descriptors, and assigns fresh identifiers before installation. On supported devices, `bad_query` provides access to the PosterBoard container. Placard also uses that access to display and remove installed wallpapers.
+
+For a custom video wallpaper, Placard generates the required CAML and PosterBoard descriptor structure locally, then installs it through the same pipeline. Wallpaper changes finish with a SpringBoard refresh powered by NeoSpring.
+
+> [!WARNING]
+> Placard relies on behavior that is not provided by a public Apple API. Compatibility may change between iOS releases. Installing or deleting system wallpaper data carries risk; use the app only on a device and OS version you are prepared to test.
+
+## Acknowledgements
+
+Placard would not exist without the work of the following projects and contributors:
+
+- [Pocket Poster](https://github.com/leminlimez/Pocket-Poster) by LeminLimez, the original project that inspired Placard's PosterBoard wallpaper workflow and `.tendies` support.
+- [bad_query](https://github.com/forcequitOS/bad_query) by forcequitOS, which provides the sandbox extension technique used to access PosterBoard data on supported systems.
+- [SerStars/nugget-wallpapers](https://github.com/SerStars/nugget-wallpapers), which provides the wallpaper metadata, previews, and packages shown in Placard.
+- [NeoSpring](https://github.com/rooootdev/neospring) by rooootdev and its contributors, whose SpringBoard refresh technique is used after wallpaper changes.
+- [ZIPFoundation](https://github.com/weichsel/ZIPFoundation) for ZIP archive handling.
+
+Wallpaper artwork remains the property of its respective creators. Author attribution supplied by the catalog is displayed in the app.
+
+## License
+
+Placard is released under the [GNU General Public License v3.0](LICENSE).
+
+Some incorporated techniques or source material come from upstream projects. Review their respective terms before redistributing a build; in particular, the upstream `bad_query` and NeoSpring repositories may not declare a separate license.
