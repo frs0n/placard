@@ -2,8 +2,10 @@
 
 Placard 是一款克制的 SwiftUI 本地互动壁纸写入器。当前阶段提供：
 
+- 通过“浏览 / 自定义 / 管理”三个一级页面组织完整壁纸工作流
 - 浏览、搜索并预览 Pocket Poster 社区壁纸目录
 - 下载并检查 `.tendies` 壁纸包
+- 从照片图库导入最长 12 秒的视频，预览并转换成可循环或往返播放的 CAML 动态壁纸
 - 在受支持的 iOS 真机上通过 `bad_query` 直接写入 PosterBoard descriptors
 - 写入完成后通过 NeoSpring 刷新 SpringBoard，使 PosterBoard 重新载入壁纸
 - 从“已安装”管理页渲染并删除“精选”descriptor 或“我的壁纸”configuration
@@ -21,7 +23,7 @@ Placard 是一款克制的 SwiftUI 本地互动壁纸写入器。当前阶段提
 ## 致谢与许可
 
 目录格式和 PosterBoard descriptor 安装流程基于
-[Mak5er/Pocket-Poster](https://github.com/Mak5er/Pocket-Poster)，sandbox extension 实现基于
+[leminlimez/Pocket-Poster](https://github.com/leminlimez/Pocket-Poster)，sandbox extension 实现基于
 [forcequitOS/bad_query](https://github.com/forcequitOS/bad_query)。壁纸目录来自
 [SerStars/nugget-wallpapers](https://github.com/SerStars/nugget-wallpapers)。桌面刷新方案来自
 [rooootdev/neospring](https://github.com/rooootdev/neospring)。

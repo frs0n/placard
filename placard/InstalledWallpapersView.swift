@@ -1,8 +1,6 @@
 import SwiftUI
 
 struct InstalledWallpapersView: View {
-    @Environment(\.dismiss) private var dismiss
-
     @State private var manager: InstalledWallpapersManager
     @State private var pendingDeletion: InstalledWallpaper?
     @State private var selectedSource: InstalledWallpaper.Source = .galleryDescriptor
@@ -15,16 +13,8 @@ struct InstalledWallpapersView: View {
         NavigationStack {
             content
                 .navigationTitle("已安装")
-                .navigationBarTitleDisplayMode(.inline)
-                .toolbar {
-                    ToolbarItem(placement: .confirmationAction) {
-                        Button("完成") { dismiss() }
-                            .disabled(manager.state.isWorking)
-                    }
-                }
         }
         .task { await manager.load() }
-        .interactiveDismissDisabled(manager.state.isWorking)
         .alert(item: $pendingDeletion) { wallpaper in
             Alert(
                 title: Text("删除“\(wallpaper.name)”？"),
