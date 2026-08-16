@@ -77,6 +77,13 @@
 "System wallpapers you create will appear here." = "System wallpapers you create will appear here.";
 "Saved featured wallpapers will appear here." = "Saved featured wallpapers will appear here.";
 "Delete" = "Delete";
+"Select" = "Select";
+"Cancel" = "Cancel";
+"Delete %lld Wallpapers?" = "Delete %lld Wallpapers?";
+"This will remove %@ from My Wallpapers and refresh the screen." = "This will remove %@ from My Wallpapers and refresh the screen.";
+"This will remove %@ from Featured and refresh the screen. Wallpapers you created are unaffected." = "This will remove %@ from Featured and refresh the screen. Wallpapers you created are unaffected.";
+"This will remove %lld wallpapers from My Wallpapers and refresh the screen." = "This will remove %lld wallpapers from My Wallpapers and refresh the screen.";
+"This will remove %lld wallpapers from Featured and refresh the screen. Wallpapers you created are unaffected." = "This will remove %lld wallpapers from Featured and refresh the screen. Wallpapers you created are unaffected.";
 "No Snapshot" = "No Snapshot";
 "No preview available" = "No preview available";
 "The system has not generated a readable Lock Screen snapshot yet." = "The system has not generated a readable Lock Screen snapshot yet.";

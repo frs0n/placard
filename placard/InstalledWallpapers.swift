@@ -128,7 +128,7 @@ final class InstalledWallpapersManager {
         case loading
         case loaded(InstalledWallpaperCollection)
         case failed(String)
-        case deleting(String)
+        case deleting(Int)
         case preparingRespring
         case respringing
     }
@@ -151,12 +151,14 @@ final class InstalledWallpapersManager {
         }
     }
 
-    func delete(_ wallpaper: InstalledWallpaper) {
-        guard !state.isWorking else { return }
-        state = .deleting(wallpaper.id)
+    func delete(_ wallpapers: [InstalledWallpaper]) {
+        guard !wallpapers.isEmpty, !state.isWorking else { return }
+        state = .deleting(wallpapers.count)
         Task {
             do {
-                try await library.delete(wallpaper)
+                for wallpaper in wallpapers {
+                    try await library.delete(wallpaper)
+                }
                 state = .preparingRespring
                 try await Task.sleep(for: .milliseconds(250))
                 state = .respringing

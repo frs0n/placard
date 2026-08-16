@@ -2,8 +2,11 @@ import SwiftUI
 
 struct InstalledWallpapersView: View {
     @State private var manager: InstalledWallpapersManager
-    @State private var pendingDeletion: InstalledWallpaper?
+    @State private var pendingDeletions: [InstalledWallpaper] = []
+    @State private var isShowingDeletionConfirmation = false
     @State private var selectedSource: InstalledWallpaper.Source = .galleryDescriptor
+    @State private var selectedWallpaperIDs = Set<InstalledWallpaper.ID>()
+    @State private var editMode: EditMode = .inactive
 
     init(library: InstalledWallpaperLibrary = .live) {
         _manager = State(initialValue: InstalledWallpapersManager(library: library))
@@ -13,19 +16,43 @@ struct InstalledWallpapersView: View {
         NavigationStack {
             content
                 .navigationTitle("Library")
+                .toolbar {
+                    if editMode == .active {
+                        ToolbarItem(placement: .topBarLeading) {
+                            Button("Cancel") {
+                                selectedWallpaperIDs.removeAll()
+                                editMode = .inactive
+                            }
+                        }
+
+                        ToolbarItem(placement: .topBarTrailing) {
+                            Button("Delete", systemImage: "trash", role: .destructive) {
+                                requestDeletion(selectedWallpapers)
+                            }
+                            .disabled(selectedWallpapers.isEmpty)
+                        }
+                    } else {
+                        ToolbarItem(placement: .topBarTrailing) {
+                            Button("Select") {
+                                editMode = .active
+                            }
+                        }
+                    }
+                }
         }
         .task { await manager.load() }
-        .alert(item: $pendingDeletion) { wallpaper in
-            Alert(
-                title: Text("Delete “\(wallpaper.name)”?"),
-                message: Text(wallpaper.source == .configuration
-                    ? "This will remove it from My Wallpapers and refresh the screen."
-                    : "This will remove it from Featured and refresh the screen. Wallpapers you created are unaffected."),
-                primaryButton: .destructive(Text("Delete")) {
-                    manager.delete(wallpaper)
-                },
-                secondaryButton: .cancel()
-            )
+        .alert(deletionTitle, isPresented: $isShowingDeletionConfirmation) {
+            Button("Delete", role: .destructive) {
+                manager.delete(pendingDeletions)
+                pendingDeletions.removeAll()
+                selectedWallpaperIDs.removeAll()
+                editMode = .inactive
+            }
+            Button("Cancel", role: .cancel) {
+                pendingDeletions.removeAll()
+            }
+        } message: {
+            Text(deletionMessage)
         }
         .overlay {
             if manager.state == .respringing {
@@ -53,6 +80,8 @@ struct InstalledWallpapersView: View {
                 InstalledWallpaperList(
                     collection: wallpapers,
                     selectedSource: $selectedSource,
+                    selectedWallpaperIDs: $selectedWallpaperIDs,
+                    editMode: $editMode,
                     onDelete: requestDeletion
                 ) {
                     await manager.load()
@@ -77,15 +106,45 @@ struct InstalledWallpapersView: View {
         }
     }
 
-    private func requestDeletion(_ wallpaper: InstalledWallpaper) {
-        pendingDeletion = wallpaper
+    private var selectedWallpapers: [InstalledWallpaper] {
+        guard case .loaded(let collection) = manager.state else { return [] }
+        return collection.items(for: selectedSource).filter { selectedWallpaperIDs.contains($0.id) }
+    }
+
+    private var deletionMessage: String {
+        guard let source = pendingDeletions.first?.source else { return "" }
+        if pendingDeletions.count == 1, let wallpaper = pendingDeletions.first {
+            return source == .configuration
+                ? String(localized: "This will remove \(wallpaper.name) from My Wallpapers and refresh the screen.")
+                : String(localized: "This will remove \(wallpaper.name) from Featured and refresh the screen. Wallpapers you created are unaffected.")
+        }
+        return source == .configuration
+            ? String(localized: "This will remove \(pendingDeletions.count) wallpapers from My Wallpapers and refresh the screen.")
+            : String(localized: "This will remove \(pendingDeletions.count) wallpapers from Featured and refresh the screen. Wallpapers you created are unaffected.")
+    }
+
+    private var deletionTitle: String {
+        if pendingDeletions.count == 1, let wallpaper = pendingDeletions.first {
+            return String(
+                localized: "Delete “\(wallpaper.name)”?"
+            )
+        }
+        return String(localized: "Delete \(pendingDeletions.count) Wallpapers?")
+    }
+
+    private func requestDeletion(_ wallpapers: [InstalledWallpaper]) {
+        guard !wallpapers.isEmpty else { return }
+        pendingDeletions = wallpapers
+        isShowingDeletionConfirmation = true
     }
 }
 
 private struct InstalledWallpaperList: View {
     let collection: InstalledWallpaperCollection
     @Binding var selectedSource: InstalledWallpaper.Source
-    let onDelete: (InstalledWallpaper) -> Void
+    @Binding var selectedWallpaperIDs: Set<InstalledWallpaper.ID>
+    @Binding var editMode: EditMode
+    let onDelete: ([InstalledWallpaper]) -> Void
     let onRefresh: () async -> Void
 
     private var wallpapers: [InstalledWallpaper] {
@@ -93,7 +152,7 @@ private struct InstalledWallpaperList: View {
     }
 
     var body: some View {
-        List {
+        List(selection: $selectedWallpaperIDs) {
             Section {
                 Picker("Wallpaper Source", selection: $selectedSource) {
                     Text("Featured").tag(InstalledWallpaper.Source.galleryDescriptor)
@@ -121,12 +180,12 @@ private struct InstalledWallpaperList: View {
                         InstalledWallpaperRow(wallpaper: wallpaper)
                             .swipeActions {
                                 Button("Delete", systemImage: "trash", role: .destructive) {
-                                    onDelete(wallpaper)
+                                    onDelete([wallpaper])
                                 }
                             }
                             .contextMenu {
                                 Button("Delete", systemImage: "trash", role: .destructive) {
-                                    onDelete(wallpaper)
+                                    onDelete([wallpaper])
                                 }
                             }
                     }
@@ -134,6 +193,10 @@ private struct InstalledWallpaperList: View {
             }
         }
         .listStyle(.insetGrouped)
+        .environment(\.editMode, $editMode)
+        .onChange(of: selectedSource) { _, _ in
+            selectedWallpaperIDs.removeAll()
+        }
         .refreshable { await onRefresh() }
     }
 }

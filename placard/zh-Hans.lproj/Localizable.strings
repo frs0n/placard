@@ -77,6 +77,13 @@
 "System wallpapers you create will appear here." = "你创建的系统壁纸会显示在这里。";
 "Saved featured wallpapers will appear here." = "已保存的精选壁纸会显示在这里。";
 "Delete" = "删除";
+"Select" = "选择";
+"Cancel" = "取消";
+"Delete %lld Wallpapers?" = "删除 %lld 张壁纸？";
+"This will remove %@ from My Wallpapers and refresh the screen." = "将从“我的壁纸”中移除“%@”并刷新屏幕。";
+"This will remove %@ from Featured and refresh the screen. Wallpapers you created are unaffected." = "将从“精选”中移除“%@”并刷新屏幕。已创建的壁纸不受影响。";
+"This will remove %lld wallpapers from My Wallpapers and refresh the screen." = "将从“我的壁纸”中移除 %lld 张壁纸并刷新屏幕。";
+"This will remove %lld wallpapers from Featured and refresh the screen. Wallpapers you created are unaffected." = "将从“精选”中移除 %lld 张壁纸并刷新屏幕。已创建的壁纸不受影响。";
 "No Snapshot" = "无快照";
 "No preview available" = "没有可用的预览";
 "The system has not generated a readable Lock Screen snapshot yet." = "系统尚未生成可读取的锁屏快照";
