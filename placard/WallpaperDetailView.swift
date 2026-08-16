@@ -43,6 +43,20 @@ struct WallpaperDetailView: View {
             }
         }
         .interactiveDismissDisabled(installer.state.isWorking)
+        .alert(
+            "Wallpaper Installed",
+            isPresented: locationNoticePresented
+        ) {
+            Button("Don't Show Again") {
+                WallpaperLocationNotice.disable()
+                installer.continueAfterLocationNotice()
+            }
+            Button("Continue") {
+                installer.continueAfterLocationNotice()
+            }
+        } message: {
+            Text("After the screen refreshes, open the system Add New Wallpaper page and find your wallpaper by name.")
+        }
         .overlay {
             if installer.state == .respringing {
                 NeoSpringView()
@@ -54,6 +68,17 @@ struct WallpaperDetailView: View {
 
     private func install() {
         installer.install(wallpaper)
+    }
+
+    private var locationNoticePresented: Binding<Bool> {
+        Binding(
+            get: { installer.state == .installed },
+            set: { isPresented in
+                if !isPresented {
+                    installer.continueAfterLocationNotice()
+                }
+            }
+        )
     }
 }
 

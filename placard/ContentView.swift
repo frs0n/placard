@@ -157,6 +157,20 @@ struct WallpaperBrowserView: View {
             } message: {
                 Text(importCoordinator.state.message)
             }
+            .alert(
+                "Wallpaper Installed",
+                isPresented: importLocationNoticePresented
+            ) {
+                Button("Don't Show Again") {
+                    WallpaperLocationNotice.disable()
+                    importCoordinator.continueAfterLocationNotice()
+                }
+                Button("Continue") {
+                    importCoordinator.continueAfterLocationNotice()
+                }
+            } message: {
+                Text("After the screen refreshes, open the system Add New Wallpaper page and find your wallpaper by name.")
+            }
             .overlay {
                 if importCoordinator.state == .respringing {
                     NeoSpringView()
@@ -175,6 +189,17 @@ struct WallpaperBrowserView: View {
     private func applyOrder() {
         guard case .loaded(let wallpapers) = loadState else { return }
         ordered = sortOrder.apply(to: wallpapers)
+    }
+
+    private var importLocationNoticePresented: Binding<Bool> {
+        Binding(
+            get: { importCoordinator.state == .installed },
+            set: { isPresented in
+                if !isPresented {
+                    importCoordinator.continueAfterLocationNotice()
+                }
+            }
+        )
     }
 
     /// Initial load / category change: show the loading grid, then fetch.

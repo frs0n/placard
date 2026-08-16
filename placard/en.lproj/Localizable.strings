@@ -25,6 +25,10 @@
 "Close" = "Close";
 "Done" = "Done";
 "Install Wallpaper" = "Install Wallpaper";
+"Wallpaper Installed" = "Wallpaper Installed";
+"Don't Show Again" = "Don't Show Again";
+"Continue" = "Continue";
+"After the screen refreshes, open the system Add New Wallpaper page and find your wallpaper by name." = "After the screen refreshes, open the system Add New Wallpaper page and find your wallpaper by name.";
 "Installing…" = "Installing…";
 "Processing…" = "Processing…";
 "The screen will briefly refresh after installation." = "The screen will briefly refresh after installation.";

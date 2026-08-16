@@ -48,14 +48,30 @@ final class VideoInstallCoordinator {
                 ) { [weak self] phase in
                     self?.state = phase
                 }
-                state = .preparingRespring
-                try await Task.sleep(for: .milliseconds(250))
-                state = .respringing
+                finishInstallation()
             } catch is CancellationError {
                 state = .idle
             } catch {
                 state = .failure(error.localizedDescription)
             }
+        }
+    }
+
+    func continueAfterLocationNotice() {
+        guard state == .installed else { return }
+        task = Task {
+            state = .preparingRespring
+            try? await Task.sleep(for: .milliseconds(250))
+            guard !Task.isCancelled else { return }
+            state = .respringing
+        }
+    }
+
+    private func finishInstallation() {
+        if WallpaperLocationNotice.isEnabled {
+            state = .installed
+        } else {
+            continueAfterLocationNotice()
         }
     }
 }
@@ -66,6 +82,7 @@ enum VideoInstallState: Equatable, Sendable {
     case generating
     case locatingPosterBoard
     case writing
+    case installed
     case preparingRespring
     case respringing
     case failure(String)
@@ -90,6 +107,7 @@ enum VideoInstallState: Equatable, Sendable {
         case .generating: String(localized: "Creating video wallpaper…")
         case .locatingPosterBoard: String(localized: "Preparing…")
         case .writing: String(localized: "Installing…")
+        case .installed: String(localized: "Wallpaper Installed")
         case .preparingRespring: String(localized: "Preparing to refresh screen…")
         case .respringing: String(localized: "Refreshing screen…")
         case .failure(let message): message
@@ -476,6 +494,20 @@ struct VideoWallpaperDetailView: View {
             }
         }
         .interactiveDismissDisabled(installer.state.isWorking)
+        .alert(
+            "Wallpaper Installed",
+            isPresented: locationNoticePresented
+        ) {
+            Button("Don't Show Again") {
+                WallpaperLocationNotice.disable()
+                installer.continueAfterLocationNotice()
+            }
+            Button("Continue") {
+                installer.continueAfterLocationNotice()
+            }
+        } message: {
+            Text("After the screen refreshes, open the system Add New Wallpaper page and find your wallpaper by name.")
+        }
         .overlay {
             if installer.state == .respringing {
                 NeoSpringView().ignoresSafeArea().transition(.opacity)
@@ -486,6 +518,17 @@ struct VideoWallpaperDetailView: View {
     private var displayName: String {
         let trimmedName = name.trimmingCharacters(in: .whitespacesAndNewlines)
         return trimmedName.isEmpty ? String(localized: "Video Wallpaper") : trimmedName
+    }
+
+    private var locationNoticePresented: Binding<Bool> {
+        Binding(
+            get: { installer.state == .installed },
+            set: { isPresented in
+                if !isPresented {
+                    installer.continueAfterLocationNotice()
+                }
+            }
+        )
     }
 
     private var videoInstallBar: some View {

@@ -25,6 +25,10 @@
 "Close" = "关闭";
 "Done" = "完成";
 "Install Wallpaper" = "安装壁纸";
+"Wallpaper Installed" = "壁纸已安装";
+"Don't Show Again" = "下次不再提示";
+"Continue" = "继续";
+"After the screen refreshes, open the system Add New Wallpaper page and find your wallpaper by name." = "屏幕刷新后，请打开系统的“添加新墙纸”页面，按壁纸名称查找。";
 "Installing…" = "安装中…";
 "Processing…" = "处理中…";
 "The screen will briefly refresh after installation." = "安装后屏幕会短暂刷新。";

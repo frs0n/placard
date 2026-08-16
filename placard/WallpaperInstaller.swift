@@ -2,6 +2,18 @@ import Foundation
 import Observation
 import ZIPFoundation
 
+enum WallpaperLocationNotice {
+    static let preferenceKey = "ShowWallpaperLocationNotice"
+
+    static var isEnabled: Bool {
+        UserDefaults.standard.object(forKey: preferenceKey) as? Bool ?? true
+    }
+
+    static func disable() {
+        UserDefaults.standard.set(false, forKey: preferenceKey)
+    }
+}
+
 @MainActor
 @Observable
 final class InstallCoordinator {
@@ -18,9 +30,7 @@ final class InstallCoordinator {
                 try await installer.install(wallpaper) { [weak self] phase in
                     self?.state = phase
                 }
-                state = .preparingRespring
-                try await Task.sleep(for: .milliseconds(250))
-                state = .respringing
+                finishInstallation()
             } catch is CancellationError {
                 state = .idle
             } catch {
@@ -45,9 +55,7 @@ final class InstallCoordinator {
                 try await installer.install(packageAt: packageURL) { [weak self] phase in
                     self?.state = phase
                 }
-                state = .preparingRespring
-                try await Task.sleep(for: .milliseconds(250))
-                state = .respringing
+                finishInstallation()
             } catch is CancellationError {
                 state = .idle
             } catch {
@@ -60,6 +68,24 @@ final class InstallCoordinator {
         guard !state.isWorking else { return }
         state = .idle
     }
+
+    func continueAfterLocationNotice() {
+        guard state == .installed else { return }
+        task = Task {
+            state = .preparingRespring
+            try? await Task.sleep(for: .milliseconds(250))
+            guard !Task.isCancelled else { return }
+            state = .respringing
+        }
+    }
+
+    private func finishInstallation() {
+        if WallpaperLocationNotice.isEnabled {
+            state = .installed
+        } else {
+            continueAfterLocationNotice()
+        }
+    }
 }
 
 enum InstallState: Equatable, Sendable {
@@ -69,6 +95,7 @@ enum InstallState: Equatable, Sendable {
     case unpacking
     case locatingPosterBoard
     case writing
+    case installed
     case preparingRespring
     case respringing
     case failure(String)
@@ -96,6 +123,7 @@ enum InstallState: Equatable, Sendable {
         case .unpacking: String(localized: "Unpacking…")
         case .locatingPosterBoard: String(localized: "Preparing…")
         case .writing: String(localized: "Installing…")
+        case .installed: String(localized: "Wallpaper Installed")
         case .preparingRespring: String(localized: "Preparing to refresh screen…")
         case .respringing: String(localized: "Refreshing screen…")
         case .failure(let message): message
