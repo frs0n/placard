@@ -55,10 +55,11 @@
 "Failed to create the video wallpaper." = "Failed to create the video wallpaper.";
 "Video Wallpaper" = "Video Wallpaper";
 "Animated Wallpaper" = "Animated Wallpaper";
-"Videos can be up to 12 seconds. Ping-pong playback reverses at each loop for a smoother transition." = "Videos can be up to 12 seconds. Ping-pong playback reverses at each loop for a smoother transition.";
 "Video Wallpaper" = "Video Wallpaper";
 "Name" = "Name";
 "Ping-Pong Playback" = "Ping-Pong Playback";
+"Frame Rate" = "Frame Rate";
+"High frame rates may prevent this wallpaper from loading in system settings." = "High frame rates may prevent this wallpaper from loading in system settings.";
 "Unknown Author" = "Unknown Author";
 "Open preview" = "Open preview";
 "Photos" = "Photos";

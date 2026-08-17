@@ -27,6 +27,18 @@ struct VideoWallpaperDraft: Identifiable, Equatable, Sendable {
     let url: URL
 }
 
+enum VideoWallpaperFrameRate: Int, CaseIterable, Identifiable, Sendable {
+    case efficient = 10
+    case recommended = 15
+    case smooth = 20
+    case high = 30
+    case maximum = 60
+
+    var id: Int { rawValue }
+    var framesPerSecond: Float { Float(rawValue) }
+    var isHighRisk: Bool { rawValue > Self.high.rawValue }
+}
+
 @MainActor
 @Observable
 final class VideoInstallCoordinator {
@@ -34,7 +46,12 @@ final class VideoInstallCoordinator {
     private let installer = VideoWallpaperInstaller()
     private var task: Task<Void, Never>?
 
-    func install(url: URL, name: String, autoReverses: Bool) {
+    func install(
+        url: URL,
+        name: String,
+        autoReverses: Bool,
+        frameRate: VideoWallpaperFrameRate
+    ) {
         guard !state.isWorking else { return }
         task?.cancel()
         task = Task {
@@ -43,7 +60,8 @@ final class VideoInstallCoordinator {
                 try await installer.install(
                     sourceURL: url,
                     name: name,
-                    autoReverses: autoReverses
+                    autoReverses: autoReverses,
+                    frameRate: frameRate
                 ) { [weak self] phase in
                     self?.state = phase
                 }
@@ -125,12 +143,12 @@ private actor VideoWallpaperInstaller {
     private let fileManager = FileManager.default
     private let maximumDuration = 12.0
     private let maximumOutputLongEdge: CGFloat = 1920
-    private let maximumFrameRate: Float = 15
 
     func install(
         sourceURL: URL,
         name: String,
         autoReverses: Bool,
+        frameRate: VideoWallpaperFrameRate,
         progress: @MainActor @Sendable (VideoInstallState) -> Void
     ) async throws {
         #if targetEnvironment(simulator)
@@ -147,7 +165,8 @@ private actor VideoWallpaperInstaller {
         let descriptor = try await createDescriptor(
             from: sourceURL,
             in: workspace,
-            autoReverses: autoReverses
+            autoReverses: autoReverses,
+            requestedFrameRate: frameRate.framesPerSecond
         )
         try Task.checkCancellation()
 
@@ -168,7 +187,8 @@ private actor VideoWallpaperInstaller {
     private func createDescriptor(
         from sourceURL: URL,
         in workspace: URL,
-        autoReverses: Bool
+        autoReverses: Bool,
+        requestedFrameRate: Float
     ) async throws -> URL {
         let asset = AVURLAsset(url: sourceURL)
         let duration = try await asset.load(.duration)
@@ -206,7 +226,7 @@ private actor VideoWallpaperInstaller {
         }
         let width = Int(outputSize.width)
         let height = Int(outputSize.height)
-        let outputFrameRate = min(nominalFrameRate, maximumFrameRate)
+        let outputFrameRate = min(nominalFrameRate, requestedFrameRate)
         NSLog(
             "[Placard] video source=%ldx%ld %.2f fps output=%ldx%ld %.2f fps duration=%.3f",
             sourceWidth,
@@ -556,6 +576,7 @@ struct VideoWallpaperDetailView: View {
 
     @State private var name = String(localized: "Video Wallpaper")
     @State private var autoReverses = false
+    @State private var frameRate = VideoWallpaperFrameRate.high
     @State private var installer = VideoInstallCoordinator()
 
     var body: some View {
@@ -568,7 +589,11 @@ struct VideoWallpaperDetailView: View {
                         .listRowSeparator(.hidden)
                 }
 
-                VideoWallpaperOptions(name: $name, autoReverses: $autoReverses)
+                VideoWallpaperOptions(
+                    name: $name,
+                    autoReverses: $autoReverses,
+                    frameRate: $frameRate
+                )
             }
             .formStyle(.grouped)
             .safeAreaInset(edge: .bottom) {
@@ -644,7 +669,8 @@ struct VideoWallpaperDetailView: View {
                 installer.install(
                     url: draft.url,
                     name: trimmedName.isEmpty ? String(localized: "Video Wallpaper") : trimmedName,
-                    autoReverses: autoReverses
+                    autoReverses: autoReverses,
+                    frameRate: frameRate
                 )
             } label: {
                 Label(
@@ -727,6 +753,7 @@ private struct VideoWallpaperHero: View {
 private struct VideoWallpaperOptions: View {
     @Binding var name: String
     @Binding var autoReverses: Bool
+    @Binding var frameRate: VideoWallpaperFrameRate
 
     var body: some View {
         Section {
@@ -740,8 +767,24 @@ private struct VideoWallpaperOptions: View {
             Toggle(isOn: $autoReverses) {
                 Label("Ping-Pong Playback", systemImage: "repeat")
             }
-        } footer: {
-            Text("Videos can be up to 12 seconds. Ping-pong playback reverses at each loop for a smoother transition.")
+
+            Picker(selection: $frameRate) {
+                ForEach(VideoWallpaperFrameRate.allCases) { option in
+                    Text("\(option.rawValue) FPS").tag(option)
+                }
+            } label: {
+                Label("Frame Rate", systemImage: "gauge.with.dots.needle.50percent")
+            }
+
+            if frameRate.isHighRisk {
+                Label {
+                    Text("High frame rates may prevent this wallpaper from loading in system settings.")
+                } icon: {
+                    Image(systemName: "exclamationmark.triangle.fill")
+                }
+                .font(.footnote)
+                .foregroundStyle(.orange)
+            }
         }
     }
 }

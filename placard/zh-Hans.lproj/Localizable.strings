@@ -54,11 +54,12 @@
 "The video can't be longer than %lld seconds." = "视频不能超过 %lld 秒。";
 "Failed to create the video wallpaper." = "生成动态壁纸失败。";
 "Video Wallpaper" = "视频壁纸";
-"Videos can be up to 12 seconds. Ping-pong playback reverses at each loop for a smoother transition." = "视频最长 12 秒。往返播放会在循环时反向播放，让首尾衔接更自然。";
 "Video Wallpaper" = "动态壁纸";
 "Animated Wallpaper" = "动态壁纸";
 "Name" = "名称";
 "Ping-Pong Playback" = "往返播放";
+"Frame Rate" = "帧率";
+"High frame rates may prevent this wallpaper from loading in system settings." = "高帧率可能导致壁纸无法在系统设置中加载或使用。";
 "Unknown Author" = "未知作者";
 "Open preview" = "打开预览";
 "Photos" = "照片";
