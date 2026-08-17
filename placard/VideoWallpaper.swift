@@ -124,6 +124,8 @@ enum VideoInstallState: Equatable, Sendable {
 private actor VideoWallpaperInstaller {
     private let fileManager = FileManager.default
     private let maximumDuration = 12.0
+    private let maximumOutputLongEdge: CGFloat = 1920
+    private let maximumFrameRate: Float = 15
 
     func install(
         sourceURL: URL,
@@ -187,11 +189,34 @@ private actor VideoWallpaperInstaller {
         let transformedRect = CGRect(origin: .zero, size: naturalSize)
             .applying(preferredTransform)
             .standardized
-        let width = Int(transformedRect.width.rounded())
-        let height = Int(transformedRect.height.rounded())
-        guard width > 0, height > 0, nominalFrameRate > 0 else {
+        let sourceWidth = Int(transformedRect.width.rounded())
+        let sourceHeight = Int(transformedRect.height.rounded())
+        guard sourceWidth > 0, sourceHeight > 0, nominalFrameRate > 0 else {
             throw VideoWallpaperError.invalidVideo
         }
+        let maximumOutputLongEdge = maximumOutputLongEdge
+        let outputSize = await MainActor.run {
+            let nativeSize = UIScreen.main.nativeBounds.size
+            let nativeLongEdge = max(nativeSize.width, nativeSize.height)
+            let nativeShortEdge = min(nativeSize.width, nativeSize.height)
+            let outputLongEdge = min(nativeLongEdge, maximumOutputLongEdge)
+            let scaledShortEdge = outputLongEdge * nativeShortEdge / nativeLongEdge
+            let outputShortEdge = max(2, (scaledShortEdge / 2).rounded(.down) * 2)
+            return CGSize(width: outputShortEdge, height: outputLongEdge)
+        }
+        let width = Int(outputSize.width)
+        let height = Int(outputSize.height)
+        let outputFrameRate = min(nominalFrameRate, maximumFrameRate)
+        NSLog(
+            "[Placard] video source=%ldx%ld %.2f fps output=%ldx%ld %.2f fps duration=%.3f",
+            sourceWidth,
+            sourceHeight,
+            nominalFrameRate,
+            width,
+            height,
+            outputFrameRate,
+            durationSeconds
+        )
 
         let identifier = Int.random(in: 9_999...99_999)
         let descriptorURL = workspace.appending(path: UUID().uuidString, directoryHint: .isDirectory)
@@ -222,15 +247,52 @@ private actor VideoWallpaperInstaller {
 
         let context = CIContext()
         var frameNames: [String] = []
+        var lastFrameTime: CMTime?
+        var encodedBytes = 0
+        let frameInterval = CMTime(
+            seconds: 1 / Double(outputFrameRate),
+            preferredTimescale: 600
+        )
         while let sampleBuffer = output.copyNextSampleBuffer() {
             try Task.checkCancellation()
+            let presentationTime = CMSampleBufferGetPresentationTimeStamp(sampleBuffer)
+            if let lastFrameTime,
+               CMTimeCompare(CMTimeSubtract(presentationTime, lastFrameTime), frameInterval) < 0 {
+                continue
+            }
             let frameName = "\(frameNames.count).jpg"
             let jpeg = try autoreleasepool { () throws -> Data in
                 guard let imageBuffer = CMSampleBufferGetImageBuffer(sampleBuffer) else {
                     throw VideoWallpaperError.frameEncodingFailed
                 }
-                let sourceImage = CIImage(cvPixelBuffer: imageBuffer).transformed(by: preferredTransform)
-                guard let cgImage = context.createCGImage(sourceImage, from: sourceImage.extent),
+                let sourceImage = CIImage(cvPixelBuffer: imageBuffer)
+                    .transformed(by: preferredTransform)
+                let normalizedImage = sourceImage.transformed(
+                    by: CGAffineTransform(
+                        translationX: -sourceImage.extent.minX,
+                        y: -sourceImage.extent.minY
+                    )
+                )
+                let scale = max(
+                    outputSize.width / normalizedImage.extent.width,
+                    outputSize.height / normalizedImage.extent.height
+                )
+                let scaledImage = normalizedImage.transformed(
+                    by: CGAffineTransform(scaleX: scale, y: scale)
+                )
+                let cropRect = CGRect(
+                    x: scaledImage.extent.midX - outputSize.width / 2,
+                    y: scaledImage.extent.midY - outputSize.height / 2,
+                    width: outputSize.width,
+                    height: outputSize.height
+                )
+                let outputImage = scaledImage.cropped(to: cropRect).transformed(
+                    by: CGAffineTransform(translationX: -cropRect.minX, y: -cropRect.minY)
+                )
+                guard let cgImage = context.createCGImage(
+                    outputImage,
+                    from: CGRect(origin: .zero, size: outputSize)
+                ),
                       let data = UIImage(cgImage: cgImage).jpegData(compressionQuality: 0.7) else {
                     throw VideoWallpaperError.frameEncodingFailed
                 }
@@ -238,13 +300,19 @@ private actor VideoWallpaperInstaller {
             }
             try jpeg.write(to: assetsURL.appending(path: frameName), options: .atomic)
             frameNames.append(frameName)
+            encodedBytes += jpeg.count
+            lastFrameTime = presentationTime
         }
         guard reader.status == .completed, !frameNames.isEmpty else {
             throw reader.error ?? VideoWallpaperError.invalidVideo
         }
 
-        let totalFrames = Int(nominalFrameRate * Float(durationSeconds))
-        let animationDuration = Double(totalFrames) / Double(nominalFrameRate)
+        let animationDuration = durationSeconds
+        NSLog(
+            "[Placard] encoded %ld video frames (%ld bytes)",
+            frameNames.count,
+            encodedBytes
+        )
         try makeDescriptorMetadata(
             at: descriptorURL,
             identifier: identifier,
