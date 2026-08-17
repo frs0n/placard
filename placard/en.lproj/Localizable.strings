@@ -22,6 +22,7 @@
 "Importing…" = "Importing…";
 "Import Wallpaper" = "Import Wallpaper";
 "Unable to Import Wallpaper" = "Unable to Import Wallpaper";
+"The selected wallpaper file couldn't be opened. Make sure it has finished downloading, then try again." = "The selected wallpaper file couldn't be opened. Make sure it has finished downloading, then try again.";
 "Importing wallpaper…" = "Importing wallpaper…";
 "Preview" = "Preview";
 "Close" = "Close";

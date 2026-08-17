@@ -1,5 +1,6 @@
 import Foundation
 import Observation
+import OSLog
 import ZIPFoundation
 
 enum WallpaperLocationNotice {
@@ -17,6 +18,11 @@ enum WallpaperLocationNotice {
 @MainActor
 @Observable
 final class InstallCoordinator {
+    private static let logger = Logger(
+        subsystem: Bundle.main.bundleIdentifier ?? "me.ssus.placard",
+        category: "WallpaperImport"
+    )
+
     private(set) var state: InstallState = .idle
     private let installer = WallpaperInstaller()
     private var task: Task<Void, Never>?
@@ -45,6 +51,11 @@ final class InstallCoordinator {
         state = .importing
         task = Task {
             let hasSecurityScopedAccess = packageURL.startAccessingSecurityScopedResource()
+            if !hasSecurityScopedAccess {
+                Self.logger.notice(
+                    "The selected file did not require or grant security-scoped access."
+                )
+            }
             defer {
                 if hasSecurityScopedAccess {
                     packageURL.stopAccessingSecurityScopedResource()
@@ -61,6 +72,24 @@ final class InstallCoordinator {
             } catch {
                 state = .failure(error.localizedDescription)
             }
+        }
+    }
+
+    func importPackage(from result: Result<URL, any Error>) {
+        switch result {
+        case .success(let packageURL):
+            install(packageAt: packageURL)
+        case .failure(let error):
+            let nsError = error as NSError
+            Self.logger.error(
+                "File importer failed: \(nsError.domain, privacy: .public) (\(nsError.code)): \(nsError.localizedDescription, privacy: .public)"
+            )
+            guard !state.isWorking else { return }
+            state = .failure(
+                String(
+                    localized: "The selected wallpaper file couldn't be opened. Make sure it has finished downloading, then try again."
+                )
+            )
         }
     }
 
@@ -242,16 +271,33 @@ private actor WallpaperInstaller {
     }
 
     private func copyImportedPackage(_ sourceURL: URL, into workspace: URL) throws -> URL {
-        let values = try sourceURL.resourceValues(forKeys: [.fileSizeKey, .isRegularFileKey])
+        let destination = workspace.appending(path: "wallpaper.tendies")
+        let coordinator = NSFileCoordinator(filePresenter: nil)
+        var coordinationError: NSError?
+        var copyError: (any Error)?
+
+        coordinator.coordinate(
+            readingItemAt: sourceURL,
+            options: .withoutChanges,
+            error: &coordinationError
+        ) { coordinatedURL in
+            do {
+                try fileManager.copyItem(at: coordinatedURL, to: destination)
+            } catch {
+                copyError = error
+            }
+        }
+
+        if let coordinationError { throw coordinationError }
+        if let copyError { throw copyError }
+
+        let values = try destination.resourceValues(forKeys: [.fileSizeKey, .isRegularFileKey])
         guard values.isRegularFile == true,
               let fileSize = values.fileSize,
               fileSize > 0,
               Int64(fileSize) <= maximumPackageBytes else {
             throw InstallError.packageTooLarge
         }
-
-        let destination = workspace.appending(path: "wallpaper.\(sourceURL.pathExtension.lowercased())")
-        try fileManager.copyItem(at: sourceURL, to: destination)
         return destination
     }
 
