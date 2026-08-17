@@ -2,11 +2,10 @@ import AVFoundation
 import CoreImage
 import CoreTransferable
 import Foundation
-import ImageIO
 import Observation
 import PhotosUI
 import SwiftUI
-import UniformTypeIdentifiers
+import UIKit
 
 struct ImportedVideo: Transferable, Sendable {
     let url: URL
@@ -125,7 +124,6 @@ enum VideoInstallState: Equatable, Sendable {
 private actor VideoWallpaperInstaller {
     private let fileManager = FileManager.default
     private let maximumDuration = 12.0
-    private let maximumFrames = 720
 
     func install(
         sourceURL: URL,
@@ -195,12 +193,7 @@ private actor VideoWallpaperInstaller {
             throw VideoWallpaperError.invalidVideo
         }
 
-        let estimatedFrames = Int(ceil(durationSeconds * Double(nominalFrameRate)))
-        guard estimatedFrames <= maximumFrames else {
-            throw VideoWallpaperError.tooManyFrames(maximumFrames)
-        }
-
-        let identifier = Int.random(in: 10_000...99_999)
+        let identifier = Int.random(in: 9_999...99_999)
         let descriptorURL = workspace.appending(path: UUID().uuidString, directoryHint: .isDirectory)
         let wallpaperName = "9183.Custom-810w-1080h@2x~ipad.wallpaper"
         let wallpaperURL = descriptorURL
@@ -227,26 +220,22 @@ private actor VideoWallpaperInstaller {
             throw reader.error ?? VideoWallpaperError.invalidVideo
         }
 
-        let context = CIContext(options: [.cacheIntermediates: false])
-        let colorSpace = CGColorSpaceCreateDeviceRGB()
+        let context = CIContext()
         var frameNames: [String] = []
         while let sampleBuffer = output.copyNextSampleBuffer() {
             try Task.checkCancellation()
-            guard frameNames.count < maximumFrames,
-                  let imageBuffer = CMSampleBufferGetImageBuffer(sampleBuffer) else {
-                reader.cancelReading()
-                throw VideoWallpaperError.tooManyFrames(maximumFrames)
-            }
-            let sourceImage = CIImage(cvPixelBuffer: imageBuffer).transformed(by: preferredTransform)
-            let normalizedImage = sourceImage.transformed(
-                by: CGAffineTransform(translationX: -sourceImage.extent.minX, y: -sourceImage.extent.minY)
-            )
-            guard let cgImage = context.createCGImage(normalizedImage, from: normalizedImage.extent),
-                  let jpeg = jpegData(from: cgImage, colorSpace: colorSpace) else {
-                reader.cancelReading()
-                throw VideoWallpaperError.frameEncodingFailed
-            }
             let frameName = "\(frameNames.count).jpg"
+            let jpeg = try autoreleasepool { () throws -> Data in
+                guard let imageBuffer = CMSampleBufferGetImageBuffer(sampleBuffer) else {
+                    throw VideoWallpaperError.frameEncodingFailed
+                }
+                let sourceImage = CIImage(cvPixelBuffer: imageBuffer).transformed(by: preferredTransform)
+                guard let cgImage = context.createCGImage(sourceImage, from: sourceImage.extent),
+                      let data = UIImage(cgImage: cgImage).jpegData(compressionQuality: 0.7) else {
+                    throw VideoWallpaperError.frameEncodingFailed
+                }
+                return data
+            }
             try jpeg.write(to: assetsURL.appending(path: frameName), options: .atomic)
             frameNames.append(frameName)
         }
@@ -254,7 +243,8 @@ private actor VideoWallpaperInstaller {
             throw reader.error ?? VideoWallpaperError.invalidVideo
         }
 
-        let animationDuration = Double(frameNames.count) / Double(nominalFrameRate)
+        let totalFrames = Int(nominalFrameRate * Float(durationSeconds))
+        let animationDuration = Double(totalFrames) / Double(nominalFrameRate)
         try makeDescriptorMetadata(
             at: descriptorURL,
             identifier: identifier,
@@ -273,31 +263,11 @@ private actor VideoWallpaperInstaller {
         ).write(to: animationURL.appending(path: "main.caml"), atomically: true, encoding: .utf8)
         try indexXML(width: width, height: height)
             .write(to: animationURL.appending(path: "index.xml"), atomically: true, encoding: .utf8)
-        try blankCAML(width: width, height: height)
+        try blankCAML()
             .write(to: floatingURL.appending(path: "main.caml"), atomically: true, encoding: .utf8)
-        try indexXML(width: width, height: height)
+        try floatingIndexXML()
             .write(to: floatingURL.appending(path: "index.xml"), atomically: true, encoding: .utf8)
         return descriptorURL
-    }
-
-    private func jpegData(from image: CGImage, colorSpace: CGColorSpace) -> Data? {
-        let data = NSMutableData()
-        guard let destination = CGImageDestinationCreateWithData(
-            data,
-            UTType.jpeg.identifier as CFString,
-            1,
-            nil
-        ) else { return nil }
-        CGImageDestinationAddImage(
-            destination,
-            image,
-            [
-                kCGImageDestinationLossyCompressionQuality: 0.7,
-                kCGImagePropertyColorModel: colorSpace.model.rawValue
-            ] as CFDictionary
-        )
-        guard CGImageDestinationFinalize(destination) else { return nil }
-        return data as Data
     }
 
     private func makeDescriptorMetadata(
@@ -342,18 +312,18 @@ private actor VideoWallpaperInstaller {
                     "default": [
                         "backgroundAnimationFileName": backgroundName,
                         "floatingAnimationFileNameKey": floatingName,
-                        "identifier": identifier,
-                        "name": "Placard Video",
+                        "identifier": 9183,
+                        "name": "Chip",
                         "type": "LayeredAnimation"
                     ]
                 ]
             ],
             "contentVersion": 2.01,
-            "family": "Placard Video",
+            "family": "Chip",
             "identifier": identifier,
             "logicalScreenClass": "810w-1080h@2x~ipad",
-            "name": "Placard Video",
-            "preferredProminentColor": ["dark": "#000000", "default": "#FFFFFF"],
+            "name": "Chip",
+            "preferredProminentColor": ["dark": "#00000", "default": "#FFFFFF"],
             "version": 1
         ]
         try writePlist(
@@ -387,9 +357,9 @@ private actor VideoWallpaperInstaller {
         <caml xmlns="http://www.apple.com/CoreAnimation/1.0">
           <CALayer allowsEdgeAntialiasing="1" allowsGroupOpacity="1" bounds="0 0 \(width) \(height)" contentsFormat="RGBA8" cornerCurve="circular" hidden="0" name="_FLOATING" position="\(width / 2) \(height / 2)">
             <sublayers>
-              <CATransformLayer allowsEdgeAntialiasing="1" allowsGroupOpacity="1" allowsHitTesting="1" bounds="0 0 \(width) \(height)" contentsFormat="RGBA8" cornerCurve="circular" name="Video" position="\(width / 2) \(height / 2)">
+              <CATransformLayer allowsEdgeAntialiasing="1" allowsGroupOpacity="1" allowsHitTesting="1" bounds="0 0 \(width) \(height)" contentsFormat="RGBA8" cornerCurve="circular" name="Chip" position="\(width / 2) \(height / 2)">
                 <sublayers>
-                  <CALayer allowsEdgeAntialiasing="1" allowsGroupOpacity="1" bounds="0 0 \(width) \(height)" contentsFormat="RGBA8" cornerCurve="circular" name="VideoFrames" position="\(width / 2) \(height / 2)">
+                  <CALayer allowsEdgeAntialiasing="1" allowsGroupOpacity="1" bounds="0 0 \(width) \(height)" contentsFormat="RGBA8" cornerCurve="circular" name="CALayer1" position="\(width / 2) \(height / 2)">
                     <contents type="CGImage" src="assets/0.jpg"/>
                     <animations>
                       <animation type="CAKeyframeAnimation" calculationMode="linear" keyPath="contents" beginTime="1e-100" duration="\(duration)" removedOnCompletion="0" repeatCount="inf" repeatDuration="0" speed="1" timeOffset="0" autoreverses="\(autoReverses ? 1 : 0)">
@@ -409,11 +379,12 @@ private actor VideoWallpaperInstaller {
         """
     }
 
-    private func blankCAML(width: Int, height: Int) -> String {
+    private func blankCAML() -> String {
         """
         <?xml version="1.0" encoding="UTF-8"?>
         <caml xmlns="http://www.apple.com/CoreAnimation/1.0">
-          <CALayer allowsEdgeAntialiasing="1" allowsGroupOpacity="1" bounds="0 0 \(width) \(height)" contentsFormat="RGBA8" cornerCurve="circular" hidden="0" name="_BACKGROUND" position="\(width / 2) \(height / 2)">
+          <CALayer allowsEdgeAntialiasing="1" allowsGroupOpacity="1" bounds="0 0 3176 3176" contentsFormat="RGBA8" cornerCurve="circular" hidden="0" name="_BACKGROUND" position="1588 1588">
+            <sublayers><CALayer allowsEdgeAntialiasing="1" allowsGroupOpacity="1" anchorPoint="0 0" bounds="0 0 0 0" contentsFormat="RGBA8" cornerCurve="circular" name="_CENTER_BACKGROUND" position="1588 1588"/></sublayers>
             <states><LKState name="Locked"><elements/></LKState><LKState name="Unlock"><elements/></LKState><LKState name="Sleep"><elements/></LKState></states>
             <stateTransitions><LKStateTransition fromState="*" toState="Unlock"><elements/></LKStateTransition><LKStateTransition fromState="Unlock" toState="*"><elements/></LKStateTransition><LKStateTransition fromState="*" toState="Locked"><elements/></LKStateTransition><LKStateTransition fromState="Locked" toState="*"><elements/></LKStateTransition><LKStateTransition fromState="*" toState="Sleep"><elements/></LKStateTransition><LKStateTransition fromState="Sleep" toState="*"><elements/></LKStateTransition></stateTransitions>
           </CALayer>
@@ -430,9 +401,63 @@ private actor VideoWallpaperInstaller {
           <key>documentHeight</key><real>\(height)</real>
           <key>documentResizesToView</key><true/>
           <key>documentWidth</key><real>\(width)</real>
+          <key>dynamicGuidesEnabled</key><true/>
           <key>geometryFlipped</key><false/>
+          <key>guidesEnabled</key><true/>
+          <key>interactiveMouseEventsEnabled</key><true/>
+          <key>interactiveShowsCursor</key><true/>
+          <key>interactiveTouchEventsEnabled</key><false/>
+          <key>loopEnd</key><real>0.0</real>
+          <key>loopStart</key><real>0.0</real>
+          <key>loopingEnabled</key><false/>
+          <key>multitouchDisablesMouse</key><false/>
+          <key>multitouchEnabled</key><false/>
+          <key>presentationMouseEventsEnabled</key><true/>
+          <key>presentationShowsCursor</key><true/>
+          <key>presentationTouchEventsEnabled</key><false/>
           <key>rootDocument</key><string>main.caml</string>
+          <key>savesWindowFrame</key><false/>
           <key>scalesToFitInPlayer</key><true/>
+          <key>showsTouches</key><true/>
+          <key>snappingEnabled</key><true/>
+          <key>timelineMarkers</key><string>[(null)]</string>
+          <key>touchesColor</key><string>1 1 0 0.8</string>
+          <key>unitsInPixelsInPlayer</key><true/>
+        </dict></plist>
+        """
+    }
+
+    private func floatingIndexXML() -> String {
+        """
+        <?xml version="1.0" encoding="UTF-8"?>
+        <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+        <plist version="1.0"><dict>
+          <key>assetManifest</key><string>assetManifest.caml</string>
+          <key>documentHeight</key><real>3176</real>
+          <key>documentResizesToView</key><false/>
+          <key>documentWidth</key><real>3176</real>
+          <key>dynamicGuidesEnabled</key><true/>
+          <key>geometryFlipped</key><false/>
+          <key>guidesEnabled</key><true/>
+          <key>interactiveMouseEventsEnabled</key><true/>
+          <key>interactiveShowsCursor</key><true/>
+          <key>interactiveTouchEventsEnabled</key><false/>
+          <key>loopEnd</key><real>0.0</real>
+          <key>loopStart</key><real>0.0</real>
+          <key>loopingEnabled</key><false/>
+          <key>multitouchDisablesMouse</key><false/>
+          <key>multitouchEnabled</key><false/>
+          <key>presentationMouseEventsEnabled</key><true/>
+          <key>presentationShowsCursor</key><true/>
+          <key>presentationTouchEventsEnabled</key><false/>
+          <key>rootDocument</key><string>main.caml</string>
+          <key>savesWindowFrame</key><false/>
+          <key>scalesToFitInPlayer</key><false/>
+          <key>showsTouches</key><true/>
+          <key>snappingEnabled</key><true/>
+          <key>timelineMarkers</key><string>[(null)]</string>
+          <key>touchesColor</key><string>1 1 0 0.8</string>
+          <key>unitsInPixelsInPlayer</key><true/>
         </dict></plist>
         """
     }
@@ -443,7 +468,6 @@ enum VideoWallpaperError: LocalizedError {
     case unsupportedSystem
     case invalidVideo
     case videoTooLong(Double)
-    case tooManyFrames(Int)
     case frameEncodingFailed
 
     var errorDescription: String? {
@@ -452,7 +476,6 @@ enum VideoWallpaperError: LocalizedError {
         case .unsupportedSystem: String(localized: "This system version is not supported.")
         case .invalidVideo: String(localized: "This video can't be read.")
         case .videoTooLong(let seconds): String(localized: "The video can't be longer than \(Int(seconds)) seconds.")
-        case .tooManyFrames(let count): String(localized: "The video has too many frames. Keep it within \(count) frames.")
         case .frameEncodingFailed: String(localized: "Failed to create the video wallpaper.")
         }
     }

@@ -52,7 +52,6 @@
 "Wallpapers are currently unavailable. Please try again later." = "Wallpapers are currently unavailable. Please try again later.";
 "This video can't be read." = "This video can't be read.";
 "The video can't be longer than %lld seconds." = "The video can't be longer than %lld seconds.";
-"The video has too many frames. Keep it within %lld frames." = "The video has too many frames. Keep it within %lld frames.";
 "Failed to create the video wallpaper." = "Failed to create the video wallpaper.";
 "Video Wallpaper" = "Video Wallpaper";
 "Animated Wallpaper" = "Animated Wallpaper";

@@ -52,7 +52,6 @@
 "Wallpapers are currently unavailable. Please try again later." = "暂时无法获取壁纸，请稍后再试。";
 "This video can't be read." = "无法读取这个视频。";
 "The video can't be longer than %lld seconds." = "视频不能超过 %lld 秒。";
-"The video has too many frames. Keep it within %lld frames." = "视频帧数过多，请控制在 %lld 帧以内。";
 "Failed to create the video wallpaper." = "生成动态壁纸失败。";
 "Video Wallpaper" = "视频壁纸";
 "Videos can be up to 12 seconds. Ping-pong playback reverses at each loop for a smoother transition." = "视频最长 12 秒。往返播放会在循环时反向播放，让首尾衔接更自然。";
