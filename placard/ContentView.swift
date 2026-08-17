@@ -258,22 +258,74 @@ struct CustomWallpaperView: View {
 
     var body: some View {
         NavigationStack {
-            ContentUnavailableView {
-                Label("Create Video Wallpaper", systemImage: "video.badge.plus")
-            } description: {
-                Text("Choose a vertical video to turn into a Lock Screen wallpaper.")
-            } actions: {
-                VStack(spacing: 10) {
-                    PhotosPicker(selection: $selectedVideo, matching: .videos) {
-                        Label("Choose Video", systemImage: "photo.on.rectangle")
-                    }
-                    .buttonStyle(.glassProminent)
-                    .controlSize(.large)
-                    .disabled(isImportingVideo)
+            ScrollView {
+                VStack(spacing: 32) {
+                    ContentUnavailableView {
+                        Label("Create Video Wallpaper", systemImage: "video.badge.plus")
+                    } description: {
+                        Text("Choose a vertical video to turn into a Lock Screen wallpaper.")
+                    } actions: {
+                        VStack(spacing: 10) {
+                            PhotosPicker(selection: $selectedVideo, matching: .videos) {
+                                Label("Choose Video", systemImage: "photo.on.rectangle")
+                            }
+                            .buttonStyle(.glassProminent)
+                            .controlSize(.large)
+                            .disabled(isImportingVideo)
 
-                    Text("Up to 12 seconds")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
+                            Text("Up to 12 seconds")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+
+                    VStack(spacing: 16) {
+                        Link(destination: URL(string: "https://v.douyin.com/jIfvCCHjwFE")!) {
+                            HStack(spacing: 14) {
+                                Image("DeveloperAvatar")
+                                    .resizable()
+                                    .scaledToFill()
+                                    .frame(width: 52, height: 52)
+                                    .clipShape(.circle)
+
+                                VStack(alignment: .leading, spacing: 3) {
+                                    Text("Developer")
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
+                                    Text("SUSS")
+                                        .font(.headline)
+                                }
+
+                                Spacer()
+                                Image(systemName: "arrow.up.right")
+                                    .font(.subheadline.weight(.semibold))
+                                    .foregroundStyle(.secondary)
+                            }
+                            .padding(16)
+                            .contentShape(.rect)
+                        }
+                        .buttonStyle(.plain)
+                        .glassEffect(.regular, in: .rect(cornerRadius: 20))
+                        .accessibilityLabel("Developer SUSS")
+
+                        DisclosureGroup {
+                            Image("DonationCode")
+                                .resizable()
+                                .interpolation(.high)
+                                .scaledToFit()
+                                .frame(maxWidth: 260)
+                                .clipShape(.rect(cornerRadius: 12))
+                                .frame(maxWidth: .infinity)
+                                .padding(.top, 8)
+                        } label: {
+                            Label("Buy SUSS a Milk Tea", systemImage: "cup.and.saucer.fill")
+                                .font(.headline)
+                        }
+                        .padding(16)
+                        .glassEffect(.regular, in: .rect(cornerRadius: 20))
+                    }
+                    .frame(maxWidth: 420)
+                    .padding(.horizontal, 20)
                 }
             }
             .navigationTitle("Create")
