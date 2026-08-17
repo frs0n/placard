@@ -5,39 +5,25 @@
       "hidden" : false,
       "layers" : [
         {
-          "fill-specializations" : [
-            {
-              "value" : {
-                "linear-gradient" : [
-                  "display-p3:0.53593,0.66736,1.00000,0.67004",
-                  "display-p3:0.94973,0.63452,0.80315,1.00000"
-                ],
-                "orientation" : {
-                  "start" : {
-                    "x" : 0.3507370833333334,
-                    "y" : 0.2900710589171975
-                  },
-                  "stop" : {
-                    "x" : 0.7699870833333334,
-                    "y" : 0.733482683121019
-                  }
-                }
+          "fill" : {
+            "linear-gradient" : [
+              "display-p3:0.53725,0.66667,1.00000,0.67000",
+              "srgb:0.94902,0.63529,0.80392,1.00000"
+            ],
+            "orientation" : {
+              "start" : {
+                "x" : 0.34964612735215056,
+                "y" : 0.2880121638924456
+              },
+              "stop" : {
+                "x" : 0.7714161206317204,
+                "y" : 0.7345200464148528
               }
-            },
-            {
-              "appearance" : "dark",
-              "value" : "automatic"
             }
-          ],
-          "image-name" : "Image.svg",
-          "name" : "Image",
-          "position" : {
-            "scale" : 5,
-            "translation-in-points" : [
-              0,
-              0
-            ]
-          }
+          },
+          "hidden" : false,
+          "image-name" : "theatermask.and.paintbrush.fill.png",
+          "name" : "theatermask.and.paintbrush.fill"
         }
       ],
       "refractivity" : {
