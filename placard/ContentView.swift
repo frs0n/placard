@@ -314,7 +314,7 @@ struct CustomWallpaperView: View {
                                 .frame(maxWidth: .infinity)
                                 .padding(.top, 8)
                         } label: {
-                            Label("Buy SUSS a Milk Tea", systemImage: "cup.and.saucer.fill")
+                            Label("Thanks SUSS - WeChat Donation Code", systemImage: "cup.and.saucer.fill")
                                 .font(.headline)
                         }
                         .padding(16)
