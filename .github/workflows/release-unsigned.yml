@@ -113,7 +113,10 @@ jobs:
 
           actual_version="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$app/Info.plist")"
           test "$actual_version" = "$VERSION"
-          codesign -dvv "$app" 2>&1 | grep -F "code object is not signed at all"
+          # codesign exits non-zero for an unsigned app, so capture its output
+          # separately instead of piping (pipefail would fail the step otherwise).
+          codesign_info="$(codesign -dvv "$app" 2>&1 || true)"
+          grep -qF "code object is not signed at all" <<<"$codesign_info"
           unzip -t "$output"
 
           echo "path=$output" >> "$GITHUB_OUTPUT"
