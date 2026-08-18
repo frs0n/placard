@@ -45,7 +45,7 @@ final class InstallCoordinator {
         }
     }
 
-    func install(packageAt packageURL: URL) {
+    func install(packageAt packageURL: URL, cleanUpSourceAfterImport: Bool = false) {
         guard !state.isWorking else { return }
         task?.cancel()
         state = .importing
@@ -59,6 +59,9 @@ final class InstallCoordinator {
             defer {
                 if hasSecurityScopedAccess {
                     packageURL.stopAccessingSecurityScopedResource()
+                }
+                if cleanUpSourceAfterImport {
+                    try? FileManager.default.removeItem(at: packageURL)
                 }
             }
 
@@ -91,6 +94,28 @@ final class InstallCoordinator {
                 )
             )
         }
+    }
+
+    /// Handles a `.tendies` file opened from Files or shared into the app. Returns `true` when the
+    /// URL is a wallpaper package the app will import. This path bypasses the in-app document
+    /// picker, so it keeps working even on devices where the picker won't register a tap on the
+    /// file. Copies delivered into the app's Inbox are removed once the import finishes.
+    @discardableResult
+    func importOpenedFile(at url: URL) -> Bool {
+        guard url.isFileURL, url.pathExtension.lowercased() == "tendies" else { return false }
+        install(packageAt: url, cleanUpSourceAfterImport: Self.isInAppInbox(url))
+        return true
+    }
+
+    private static func isInAppInbox(_ url: URL) -> Bool {
+        guard let documents = try? FileManager.default.url(
+            for: .documentDirectory,
+            in: .userDomainMask,
+            appropriateFor: nil,
+            create: false
+        ) else { return false }
+        let inbox = documents.appending(path: "Inbox", directoryHint: .isDirectory)
+        return url.standardizedFileURL.path.hasPrefix(inbox.standardizedFileURL.path)
     }
 
     func reset() {

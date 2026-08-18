@@ -27,11 +27,12 @@ struct UnsupportedSystemView: View {
 
 struct PlacardRootView: View {
     @State private var selection: AppTab = .browse
+    @State private var importCoordinator = InstallCoordinator()
 
     var body: some View {
         TabView(selection: $selection) {
             Tab("Browse", systemImage: "square.grid.2x2", value: .browse) {
-                WallpaperBrowserView()
+                WallpaperBrowserView(importCoordinator: importCoordinator)
             }
 
             Tab("Create", systemImage: "plus", value: .create) {
@@ -43,6 +44,13 @@ struct PlacardRootView: View {
             }
         }
         .tint(.accentColor)
+        // A .tendies file opened from Files or shared into the app arrives here. This route
+        // does not depend on the in-app document picker, so it works even when a file's UTI
+        // prevents the picker from registering a tap.
+        .onOpenURL { url in
+            guard importCoordinator.importOpenedFile(at: url) else { return }
+            selection = .browse
+        }
     }
 }
 
@@ -53,9 +61,10 @@ private enum AppTab: Hashable {
 }
 
 struct WallpaperBrowserView: View {
-    private static let importablePackageTypes: [UTType] = [.tendiesWallpaper]
+    private static let importablePackageTypes: [UTType] = UTType.importableWallpaperTypes
 
     private let catalog: WallpaperCatalog
+    private let importCoordinator: InstallCoordinator
 
     @State private var category: WallpaperCategory = .custom
     @State private var loadState: CatalogLoadState = .idle
@@ -64,10 +73,10 @@ struct WallpaperBrowserView: View {
     @State private var ordered: [Wallpaper] = []
     @State private var loadedCategory: WallpaperCategory?
     @State private var isImportingPackage = false
-    @State private var importCoordinator = InstallCoordinator()
 
-    init(catalog: WallpaperCatalog = .live) {
+    init(catalog: WallpaperCatalog = .live, importCoordinator: InstallCoordinator = InstallCoordinator()) {
         self.catalog = catalog
+        self.importCoordinator = importCoordinator
     }
 
     private var displayedWallpapers: [Wallpaper] {
