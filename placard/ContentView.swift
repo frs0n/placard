@@ -207,18 +207,21 @@ struct WallpaperBrowserView: View {
     private func load(_ targetCategory: WallpaperCategory) async {
         loadState = .loading
         ordered = []
-        await fetch(targetCategory)
+        await fetch(targetCategory, policy: .cached)
     }
 
     /// Pull to refresh: keep the current content on screen while fetching so
     /// swapping to a loading state doesn't cancel the refresh task mid-request.
     private func refresh() async {
-        await fetch(category)
+        await fetch(category, policy: .refresh)
     }
 
-    private func fetch(_ targetCategory: WallpaperCategory) async {
+    private func fetch(
+        _ targetCategory: WallpaperCategory,
+        policy: CatalogFetchPolicy
+    ) async {
         do {
-            let wallpapers = try await catalog.fetch(targetCategory)
+            let wallpapers = try await catalog.fetch(targetCategory, policy)
             guard targetCategory == category else { return }
             loadState = .loaded(wallpapers)
             loadedCategory = targetCategory

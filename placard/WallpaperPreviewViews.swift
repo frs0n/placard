@@ -223,9 +223,7 @@ enum AnimatedImageLoader {
     nonisolated static func load(_ url: URL, playback: PreviewPlayback) async -> UIImage? {
         if let cached = cached(url, playback: playback) { return cached }
         do {
-            var request = URLRequest(url: url)
-            request.cachePolicy = .returnCacheDataElseLoad
-            let (data, _) = try await URLSession.shared.data(for: request)
+            let data = try await RemoteAssetCache.shared.data(for: url)
             guard !Task.isCancelled else { return nil }
             let image = await Task.detached(priority: .utility) {
                 decode(data, playback: playback)

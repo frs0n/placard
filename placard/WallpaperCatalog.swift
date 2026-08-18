@@ -89,23 +89,18 @@ struct Wallpaper: Codable, Identifiable, Equatable, Sendable {
 struct WallpaperCatalog: Sendable {
     nonisolated static let assetBaseURL = URL(string: "https://gh-proxy.com/https://raw.githubusercontent.com/SerStars/nugget-wallpapers/main/")!
 
-    var fetch: @Sendable (WallpaperCategory) async throws -> [Wallpaper]
+    var fetch: @Sendable (WallpaperCategory, CatalogFetchPolicy) async throws -> [Wallpaper]
 
-    static let live = WallpaperCatalog { category in
+    static let live = WallpaperCatalog { category, policy in
         let url = assetBaseURL.appending(path: "wallpapers-\(category.rawValue).json")
-        var request = URLRequest(url: url)
-        request.timeoutInterval = 20
-        request.cachePolicy = .reloadRevalidatingCacheData
-
-        let (data, response) = try await URLSession.shared.data(for: request)
-        guard let response = response as? HTTPURLResponse,
-              response.statusCode == 200 else {
-            throw CatalogError.invalidResponse
-        }
+        let data = try await RemoteAssetCache.shared.data(
+            for: url,
+            refresh: policy == .refresh
+        )
         return try JSONDecoder().decode([Wallpaper].self, from: data)
     }
 
-    static let preview = WallpaperCatalog { _ in
+    static let preview = WallpaperCatalog { _, _ in
         let second = Wallpaper(
             remoteID: 2,
             name: "Rolling Hills",
@@ -118,8 +113,103 @@ struct WallpaperCatalog: Sendable {
         return [.previewFixture, second]
     }
 
-    static let failingPreview = WallpaperCatalog { _ in
+    static let failingPreview = WallpaperCatalog { _, _ in
         throw CatalogError.invalidResponse
+    }
+}
+
+enum CatalogFetchPolicy: Sendable {
+    case cached
+    case refresh
+}
+
+/// A persistent cache for the catalog and its preview assets. The upstream
+/// files are effectively immutable, so normal browsing only goes to the
+/// network after URLCache has evicted an item. Explicit refreshes bypass the
+/// cached catalog response and replace it after a successful request.
+actor RemoteAssetCache {
+    nonisolated static let shared = RemoteAssetCache()
+
+    private let cache: URLCache
+    private let session: URLSession
+    private var inFlight: [URL: Task<Data, Error>] = [:]
+    private var activeDownloads = 0
+    private var downloadWaiters: [CheckedContinuation<Void, Never>] = []
+
+    init() {
+        let cacheDirectory = FileManager.default.urls(
+            for: .cachesDirectory,
+            in: .userDomainMask
+        )[0].appending(path: "PlacardRemoteAssets", directoryHint: .isDirectory)
+        let cache = URLCache(
+            memoryCapacity: 48 * 1_024 * 1_024,
+            diskCapacity: 512 * 1_024 * 1_024,
+            directory: cacheDirectory
+        )
+        let configuration = URLSessionConfiguration.default
+        configuration.urlCache = cache
+        configuration.requestCachePolicy = .returnCacheDataElseLoad
+        configuration.httpMaximumConnectionsPerHost = 4
+        self.cache = cache
+        self.session = URLSession(configuration: configuration)
+    }
+
+    func data(for url: URL, refresh: Bool = false) async throws -> Data {
+        var request = URLRequest(url: url)
+        request.timeoutInterval = 20
+
+        if !refresh, let cached = cache.cachedResponse(for: request) {
+            return cached.data
+        }
+        if let task = inFlight[url] {
+            return try await task.value
+        }
+
+        request.cachePolicy = .reloadIgnoringLocalCacheData
+        let task = Task<Data, Error> {
+            try await self.download(request)
+        }
+        inFlight[url] = task
+        defer { inFlight[url] = nil }
+        return try await task.value
+    }
+
+    private func download(_ request: URLRequest) async throws -> Data {
+        await acquireDownloadSlot()
+        defer { releaseDownloadSlot() }
+
+        let (data, response) = try await session.data(for: request)
+        guard let response = response as? HTTPURLResponse,
+              response.statusCode == 200 else {
+            throw CatalogError.invalidResponse
+        }
+        cache.storeCachedResponse(
+            CachedURLResponse(
+                response: response,
+                data: data,
+                storagePolicy: .allowed
+            ),
+            for: request
+        )
+        return data
+    }
+
+    private func acquireDownloadSlot() async {
+        guard activeDownloads >= 3 else {
+            activeDownloads += 1
+            return
+        }
+        await withCheckedContinuation { continuation in
+            downloadWaiters.append(continuation)
+        }
+    }
+
+    private func releaseDownloadSlot() {
+        guard !downloadWaiters.isEmpty else {
+            activeDownloads -= 1
+            return
+        }
+        downloadWaiters.removeFirst().resume()
     }
 }
 
