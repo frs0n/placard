@@ -74,9 +74,11 @@ struct WallpaperBrowserView: View {
     @State private var loadedCategory: WallpaperCategory?
     @State private var isImportingPackage = false
 
-    init(catalog: WallpaperCatalog = .live, importCoordinator: InstallCoordinator = InstallCoordinator()) {
+    init(catalog: WallpaperCatalog = .live, importCoordinator: InstallCoordinator? = nil) {
         self.catalog = catalog
-        self.importCoordinator = importCoordinator
+        // InstallCoordinator is @MainActor, so it can't be a default argument value
+        // (those evaluate in a nonisolated context). Build it here in the isolated init instead.
+        self.importCoordinator = importCoordinator ?? InstallCoordinator()
     }
 
     private var displayedWallpapers: [Wallpaper] {
