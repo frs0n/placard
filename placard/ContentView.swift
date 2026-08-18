@@ -6,7 +6,21 @@ import UniformTypeIdentifiers
 struct PlacardApp: App {
     var body: some Scene {
         WindowGroup {
-            PlacardRootView()
+            if SystemCompatibility.isSupported {
+                PlacardRootView()
+            } else {
+                UnsupportedSystemView()
+            }
+        }
+    }
+}
+
+struct UnsupportedSystemView: View {
+    var body: some View {
+        ContentUnavailableView {
+            Label("Unsupported System Version", systemImage: "exclamationmark.triangle")
+        } description: {
+            Text("This version of iOS/iPadOS is not supported.\nSupported: \(SystemCompatibility.supportedRangeDescription)")
         }
     }
 }
