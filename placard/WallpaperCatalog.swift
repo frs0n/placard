@@ -87,7 +87,7 @@ struct Wallpaper: Codable, Identifiable, Equatable, Sendable {
 }
 
 struct WallpaperCatalog: Sendable {
-    nonisolated static let assetBaseURL = URL(string: "https://gh-proxy.com/https://raw.githubusercontent.com/SerStars/nugget-wallpapers/main/")!
+    nonisolated static let assetBaseURL = URL(string: "https://cdn.jsdmirror.com/gh/SerStars/nugget-wallpapers@main/")!
 
     var fetch: @Sendable (WallpaperCategory, CatalogFetchPolicy) async throws -> [Wallpaper]
 
