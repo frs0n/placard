@@ -53,7 +53,9 @@ private enum AppTab: Hashable {
 }
 
 struct WallpaperBrowserView: View {
-    private static let importablePackageTypes: [UTType] = [.tendiesWallpaper]
+    private static let importablePackageTypes = ["tendies"].compactMap {
+        UTType(filenameExtension: $0)
+    }
 
     private let catalog: WallpaperCatalog
 
@@ -154,7 +156,9 @@ struct WallpaperBrowserView: View {
                 isPresented: $isImportingPackage,
                 allowedContentTypes: Self.importablePackageTypes
             ) { result in
-                importCoordinator.importPackage(from: result)
+                if case .success(let packageURL) = result {
+                    importCoordinator.install(packageAt: packageURL)
+                }
             }
             .alert(
                 "Unable to Import Wallpaper",
