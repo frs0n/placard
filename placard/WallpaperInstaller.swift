@@ -39,22 +39,26 @@ final class InstallCoordinator {
         }
     }
 
-    func install(packageAt packageURL: URL) {
+    func install(packagesAt packageURLs: [URL]) {
         guard !state.isWorking else { return }
         task?.cancel()
         state = .importing
         task = Task {
-            let hasSecurityScopedAccess = packageURL.startAccessingSecurityScopedResource()
-            defer {
-                if hasSecurityScopedAccess {
-                    packageURL.stopAccessingSecurityScopedResource()
-                }
-            }
-
             do {
-                try await installer.install(packageAt: packageURL) { [weak self] phase in
-                    self?.state = phase
+                for packageURL in packageURLs {
+                    try Task.checkCancellation()
+                    let hasSecurityScopedAccess = packageURL.startAccessingSecurityScopedResource()
+                    defer {
+                        if hasSecurityScopedAccess {
+                            packageURL.stopAccessingSecurityScopedResource()
+                        }
+                    }
+
+                    try await installer.install(packageAt: packageURL) { [weak self] phase in
+                        self?.state = phase
+                    }
                 }
+
                 finishInstallation()
             } catch is CancellationError {
                 state = .idle

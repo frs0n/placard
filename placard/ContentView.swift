@@ -1,6 +1,30 @@
 import SwiftUI
 import PhotosUI
 import UniformTypeIdentifiers
+import UIKit
+
+private enum TendiesDocumentPicker {
+    static let useCopyMode: Void = {
+        let originalMethod = class_getInstanceMethod(
+            UIDocumentPickerViewController.self,
+            #selector(UIDocumentPickerViewController.init(forOpeningContentTypes:asCopy:))
+        )!
+        let copyMethod = class_getInstanceMethod(
+            UIDocumentPickerViewController.self,
+            #selector(UIDocumentPickerViewController.placard_init(forOpeningContentTypes:asCopy:))
+        )!
+        method_exchangeImplementations(originalMethod, copyMethod)
+    }()
+}
+
+private extension UIDocumentPickerViewController {
+    @objc func placard_init(
+        forOpeningContentTypes contentTypes: [UTType],
+        asCopy: Bool
+    ) -> UIDocumentPickerViewController {
+        placard_init(forOpeningContentTypes: contentTypes, asCopy: true)
+    }
+}
 
 @main
 struct PlacardApp: App {
@@ -54,7 +78,7 @@ private enum AppTab: Hashable {
 
 struct WallpaperBrowserView: View {
     private static let importablePackageTypes = ["tendies"].compactMap {
-        UTType(filenameExtension: $0)
+        UTType(filenameExtension: $0, conformingTo: .data)
     }
 
     private let catalog: WallpaperCatalog
@@ -70,6 +94,7 @@ struct WallpaperBrowserView: View {
 
     init(catalog: WallpaperCatalog = .live) {
         self.catalog = catalog
+        _ = TendiesDocumentPicker.useCopyMode
     }
 
     private var displayedWallpapers: [Wallpaper] {
@@ -154,10 +179,11 @@ struct WallpaperBrowserView: View {
             .task(id: category) { await loadIfNeeded(category) }
             .fileImporter(
                 isPresented: $isImportingPackage,
-                allowedContentTypes: Self.importablePackageTypes
+                allowedContentTypes: Self.importablePackageTypes,
+                allowsMultipleSelection: true
             ) { result in
-                if case .success(let packageURL) = result {
-                    importCoordinator.install(packageAt: packageURL)
+                if case .success(let packageURLs) = result, !packageURLs.isEmpty {
+                    importCoordinator.install(packagesAt: packageURLs)
                 }
             }
             .alert(
