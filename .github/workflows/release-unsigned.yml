@@ -59,7 +59,7 @@ jobs:
           fi
 
           perl -0pi -e "s/MARKETING_VERSION = \\Q$current\\E;/MARKETING_VERSION = $next;/g" "$project_file"
-          test "$(rg -c "MARKETING_VERSION = $next;" "$project_file")" -eq 2
+          test "$(grep -Fc "MARKETING_VERSION = $next;" "$project_file")" -eq 2
 
           echo "version=$next" >> "$GITHUB_OUTPUT"
           if [[ "$patch" == 0 ]]; then
