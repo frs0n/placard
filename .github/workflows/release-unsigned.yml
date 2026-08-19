@@ -1,17 +1,9 @@
-name: Build and publish unsigned IPA
+name: Release unsigned IPA
 
 on:
-  workflow_dispatch:
-    inputs:
-      bump:
-        description: Version increment
-        required: true
-        type: choice
-        default: minor
-        options:
-          - patch
-          - minor
-          - major
+  push:
+    tags:
+      - "v*"
 
 permissions:
   contents: write
@@ -23,145 +15,42 @@ concurrency:
 jobs:
   release:
     runs-on: macos-26
+    timeout-minutes: 30
 
     steps:
       - name: Check out source
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
+        uses: actions/checkout@v7
 
       - name: Select Xcode
-        run: xcodebuild -version
+        uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: latest-stable
 
-      - name: Bump marketing version
-        id: version
-        env:
-          BUMP: ${{ inputs.bump }}
-        shell: bash
+      - name: Build unsigned archive
         run: |
-          set -euo pipefail
-
-          project_file="placard.xcodeproj/project.pbxproj"
-          current="$(awk -F ' = ' '/MARKETING_VERSION = / { gsub(";", "", $2); print $2; exit }' "$project_file")"
-          IFS=. read -r major minor patch <<< "$current"
-
-          case "$BUMP" in
-            patch) patch=$((patch + 1)) ;;
-            minor) minor=$((minor + 1)); patch=0 ;;
-            major) major=$((major + 1)); minor=0; patch=0 ;;
-            *) echo "Unsupported bump type: $BUMP" >&2; exit 1 ;;
-          esac
-
-          if [[ "$patch" == 0 ]]; then
-            next="$major.$minor"
-          else
-            next="$major.$minor.$patch"
-          fi
-
-          perl -0pi -e "s/MARKETING_VERSION = \\Q$current\\E;/MARKETING_VERSION = $next;/g" "$project_file"
-          test "$(grep -Fc "MARKETING_VERSION = $next;" "$project_file")" -eq 2
-
-          echo "version=$next" >> "$GITHUB_OUTPUT"
-          if [[ "$patch" == 0 ]]; then
-            echo "tag=v${major}.${minor}.0-unsigned" >> "$GITHUB_OUTPUT"
-          else
-            echo "tag=v${major}.${minor}.${patch}-unsigned" >> "$GITHUB_OUTPUT"
-          fi
-
-      - name: Commit and push version bump
-        env:
-          VERSION: ${{ steps.version.outputs.version }}
-          BRANCH: ${{ github.ref_name }}
-        run: |
-          set -euo pipefail
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add placard.xcodeproj/project.pbxproj
-          git commit -m "Bump version to $VERSION"
-          git push origin "HEAD:$BRANCH"
-
-      - name: Build unsigned app
-        env:
-          DERIVED_DATA: ${{ runner.temp }}/placard-derived-data
-        run: |
-          set -euo pipefail
-          xcodebuild \
+          xcodebuild archive \
             -project placard.xcodeproj \
             -scheme placard \
             -configuration Release \
-            -sdk iphoneos \
-            -derivedDataPath "$DERIVED_DATA" \
-            build \
-            CODE_SIGNING_ALLOWED=NO \
+            -destination "generic/platform=iOS" \
+            -archivePath "$RUNNER_TEMP/placard.xcarchive" \
+            CODE_SIGN_IDENTITY="" \
             CODE_SIGNING_REQUIRED=NO \
-            CODE_SIGN_IDENTITY=""
+            CODE_SIGNING_ALLOWED=NO
 
-      - name: Package and verify IPA
-        id: package
-        env:
-          DERIVED_DATA: ${{ runner.temp }}/placard-derived-data
-          VERSION: ${{ steps.version.outputs.version }}
+      - name: Package unsigned IPA
         run: |
-          set -euo pipefail
-          app="$DERIVED_DATA/Build/Products/Release-iphoneos/placard.app"
-          output="$RUNNER_TEMP/placard-${VERSION}-unsigned.ipa"
-          payload="$RUNNER_TEMP/placard-payload/Payload"
+          mkdir -p "$RUNNER_TEMP/Payload"
+          cp -R \
+            "$RUNNER_TEMP/placard.xcarchive/Products/Applications/placard.app" \
+            "$RUNNER_TEMP/Payload/"
+          cd "$RUNNER_TEMP"
+          zip -qry "placard-${GITHUB_REF_NAME}-unsigned.ipa" Payload
 
-          mkdir -p "$payload"
-          ditto "$app" "$payload/placard.app"
-          ditto -c -k --sequesterRsrc --keepParent "$payload" "$output"
-
-          actual_version="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$app/Info.plist")"
-          test "$actual_version" = "$VERSION"
-          codesign -dvv "$app" 2>&1 | grep -F "code object is not signed at all"
-          unzip -t "$output"
-
-          echo "path=$output" >> "$GITHUB_OUTPUT"
-          echo "sha256=$(shasum -a 256 "$output" | awk '{print $1}')" >> "$GITHUB_OUTPUT"
-
-      - name: Generate release notes
-        env:
-          GH_TOKEN: ${{ github.token }}
-          TAG: ${{ steps.version.outputs.tag }}
-          VERSION: ${{ steps.version.outputs.version }}
-          SHA256: ${{ steps.package.outputs.sha256 }}
-        run: |
-          set -euo pipefail
-          gh api \
-            --method POST \
-            "repos/${GITHUB_REPOSITORY}/releases/generate-notes" \
-            -f "tag_name=$TAG" \
-            -f "target_commitish=${GITHUB_REF_NAME}" \
-            --jq .body > "$RUNNER_TEMP/generated-release-notes.md"
-
-          {
-            echo "## 新增功能与变更"
-            echo
-            cat "$RUNNER_TEMP/generated-release-notes.md"
-            echo
-            echo "## 构建信息"
-            echo
-            echo "- 版本：$VERSION"
-            echo "- 构建：Release / iPhoneOS"
-            echo "- 签名：无签名"
-            echo "- SHA-256：$SHA256"
-          } > "$RUNNER_TEMP/release-notes.md"
-
-      - name: Publish GitHub Release
-        env:
-          GH_TOKEN: ${{ github.token }}
-          TAG: ${{ steps.version.outputs.tag }}
-          VERSION: ${{ steps.version.outputs.version }}
-          IPA: ${{ steps.package.outputs.path }}
-        run: |
-          set -euo pipefail
-          gh release create "$TAG" "$IPA" \
-            --target "${GITHUB_REF_NAME}" \
-            --title "placard $VERSION (unsigned IPA)" \
-            --notes-file "$RUNNER_TEMP/release-notes.md"
-
-      - name: Upload IPA as workflow artifact
-        uses: actions/upload-artifact@v4
+      - name: Publish GitHub release
+        uses: softprops/action-gh-release@v3
         with:
-          name: placard-${{ steps.version.outputs.version }}-unsigned
-          path: ${{ steps.package.outputs.path }}
+          name: Placard ${{ github.ref_name }}
+          generate_release_notes: true
+          fail_on_unmatched_files: true
+          files: ${{ runner.temp }}/placard-${{ github.ref_name }}-unsigned.ipa
