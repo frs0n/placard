@@ -301,75 +301,23 @@ struct CustomWallpaperView: View {
 
     var body: some View {
         NavigationStack {
-            ScrollView {
-                VStack(spacing: 32) {
-                    ContentUnavailableView {
-                        Label("Create Video Wallpaper", systemImage: "video.badge.plus")
-                    } description: {
-                        Text("Choose a vertical video to turn into a Lock Screen wallpaper.")
-                    } actions: {
-                        VStack(spacing: 10) {
-                            PhotosPicker(selection: $selectedVideo, matching: .videos) {
-                                Label("Choose Video", systemImage: "photo.on.rectangle")
-                            }
-                            .buttonStyle(.glassProminent)
-                            .controlSize(.large)
-                            .disabled(isImportingVideo)
-
-                            Text("Up to 12 seconds")
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                        }
-                    }
-
-                    VStack(spacing: 16) {
-                        Link(destination: URL(string: "https://v.douyin.com/jIfvCCHjwFE")!) {
-                            HStack(spacing: 14) {
-                                Image("DeveloperAvatar")
-                                    .resizable()
-                                    .scaledToFill()
-                                    .frame(width: 52, height: 52)
-                                    .clipShape(.circle)
-
-                                VStack(alignment: .leading, spacing: 3) {
-                                    Text("Developer")
-                                        .font(.caption)
-                                        .foregroundStyle(.secondary)
-                                    Text("SUSS")
-                                        .font(.headline)
-                                }
-
-                                Spacer()
-                                Image(systemName: "arrow.up.right")
-                                    .font(.subheadline.weight(.semibold))
-                                    .foregroundStyle(.secondary)
-                            }
-                            .padding(16)
-                            .contentShape(.rect)
-                        }
-                        .buttonStyle(.plain)
-                        .glassEffect(.regular, in: .rect(cornerRadius: 20))
-                        .accessibilityLabel("Developer SUSS")
-
-                        DisclosureGroup {
-                            Image("DonationCode")
-                                .resizable()
-                                .interpolation(.high)
-                                .scaledToFit()
-                                .frame(maxWidth: 260)
-                                .clipShape(.rect(cornerRadius: 12))
-                                .frame(maxWidth: .infinity)
-                                .padding(.top, 8)
-                        } label: {
-                            Label("Thanks SUSS - WeChat Donation Code", systemImage: "cup.and.saucer.fill")
-                                .font(.headline)
-                        }
-                        .padding(16)
-                        .glassEffect(.regular, in: .rect(cornerRadius: 20))
+            // Fills the visible height so the picker owns the page instead of
+            // leaving a void below it, but still scrolls at large text sizes.
+            GeometryReader { proxy in
+                ScrollView {
+                    VStack(spacing: 12) {
+                        videoPickerCard
+                            .frame(maxHeight: .infinity)
+                        supportSection
                     }
                     .frame(maxWidth: 420)
+                    .frame(maxWidth: .infinity)
                     .padding(.horizontal, 20)
+                    .padding(.top, 8)
+                    .padding(.bottom, 16)
+                    .frame(minHeight: proxy.size.height)
                 }
+                .scrollBounceBehavior(.basedOnSize)
             }
             .navigationTitle("Create")
             .onChange(of: selectedVideo) { _, item in
@@ -400,6 +348,114 @@ struct CustomWallpaperView: View {
                 }
             }
         }
+    }
+
+    /// One large tap target instead of a card wrapped around a button — the whole
+    /// area is the picker, so the page reads as a single action.
+    private var videoPickerCard: some View {
+        PhotosPicker(selection: $selectedVideo, matching: .videos) {
+            VStack(spacing: 8) {
+                Image(systemName: "video.badge.plus")
+                    .font(.system(size: 38))
+                    .foregroundStyle(.tint)
+                    .padding(.bottom, 4)
+
+                Text("Choose Video")
+                    .font(.title3.weight(.semibold))
+                    .foregroundStyle(.primary)
+
+                Text("Choose a vertical video to turn into a Lock Screen wallpaper.")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center)
+                    .fixedSize(horizontal: false, vertical: true)
+
+                Text("Up to 12 seconds")
+                    .font(.caption2)
+                    .foregroundStyle(.tertiary)
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .padding(.horizontal, 28)
+            .padding(.vertical, 40)
+            .contentShape(.rect)
+        }
+        .buttonStyle(.plain)
+        .disabled(isImportingVideo)
+        .background(.tint.opacity(0.08), in: .rect(cornerRadius: 26))
+        .overlay {
+            RoundedRectangle(cornerRadius: 26)
+                .strokeBorder(
+                    .tint.opacity(0.35),
+                    style: StrokeStyle(lineWidth: 1.5, dash: [7, 6])
+                )
+        }
+    }
+
+    /// Developer link and donation code share one grouped container so they read
+    /// as secondary information rather than two more standalone cards.
+    private var supportSection: some View {
+        VStack(spacing: 0) {
+            developerRow
+            Divider().padding(.leading, 16)
+            donationRow
+        }
+        .glassEffect(.regular, in: .rect(cornerRadius: 22))
+    }
+
+    private var developerRow: some View {
+        Link(destination: URL(string: "https://v.douyin.com/jIfvCCHjwFE")!) {
+            HStack(spacing: 12) {
+                Image("DeveloperAvatar")
+                    .resizable()
+                    .scaledToFill()
+                    .frame(width: 36, height: 36)
+                    .clipShape(.circle)
+
+                Text("Developer")
+                    .font(.subheadline)
+                    .foregroundStyle(.primary)
+
+                Spacer()
+
+                Text("SUSS")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                Image(systemName: "arrow.up.right")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(.tertiary)
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 12)
+            .contentShape(.rect)
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("Developer SUSS")
+    }
+
+    private var donationRow: some View {
+        DisclosureGroup {
+            Image("DonationCode")
+                .resizable()
+                .interpolation(.high)
+                .scaledToFit()
+                .frame(maxWidth: 220)
+                .clipShape(.rect(cornerRadius: 12))
+                .frame(maxWidth: .infinity)
+                .padding(.top, 12)
+                .padding(.bottom, 4)
+        } label: {
+            Label {
+                Text("Thanks SUSS - WeChat Donation Code")
+                    .font(.subheadline)
+                    .foregroundStyle(.primary)
+            } icon: {
+                Image(systemName: "cup.and.saucer.fill")
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .tint(.secondary)
+        .padding(.horizontal, 16)
+        .padding(.vertical, 12)
     }
 
     private func importVideo(_ item: PhotosPickerItem) {

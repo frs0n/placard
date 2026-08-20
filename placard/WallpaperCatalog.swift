@@ -57,7 +57,7 @@ struct Wallpaper: Codable, Identifiable, Equatable, Sendable {
     let contest: String?
 
     var id: String { url }
-    nonisolated var downloadURL: URL { WallpaperCatalog.assetBaseURL.appending(path: url) }
+    nonisolated var downloadURL: URL { WallpaperCatalog.packageBaseURL.appending(path: url) }
     nonisolated var previewURL: URL { WallpaperCatalog.assetBaseURL.appending(path: preview) }
 
     enum CodingKeys: String, CodingKey {
@@ -88,6 +88,7 @@ struct Wallpaper: Codable, Identifiable, Equatable, Sendable {
 
 struct WallpaperCatalog: Sendable {
     nonisolated static let assetBaseURL = URL(string: "https://cdn.jsdmirror.com/gh/SerStars/nugget-wallpapers@main/")!
+    nonisolated static let packageBaseURL = URL(string: "https://gh-proxy.com/https://raw.githubusercontent.com/SerStars/nugget-wallpapers/main/")!
 
     var fetch: @Sendable (WallpaperCategory, CatalogFetchPolicy) async throws -> [Wallpaper]
 

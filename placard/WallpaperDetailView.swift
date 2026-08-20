@@ -36,13 +36,21 @@ struct WallpaperDetailView: View {
         .toolbar {
             ToolbarItem(placement: .cancellationAction) {
                 Button("Close", systemImage: "xmark") {
+                    if isCancellable {
+                        installer.cancel()
+                    }
                     dismiss()
                 }
                 .labelStyle(.iconOnly)
-                .disabled(installer.state.isWorking)
+                .disabled(installer.state.isWorking && !isCancellable)
             }
         }
-        .interactiveDismissDisabled(installer.state.isWorking)
+        .interactiveDismissDisabled(installer.state.isWorking && !isCancellable)
+        .onDisappear {
+            if isCancellable {
+                installer.cancel()
+            }
+        }
         .alert(
             "Wallpaper Installed",
             isPresented: locationNoticePresented
@@ -64,10 +72,32 @@ struct WallpaperDetailView: View {
                     .transition(.opacity)
             }
         }
+        .animation(.easeInOut(duration: 0.3), value: installPhaseKey)
     }
 
     private func install() {
         installer.install(wallpaper)
+    }
+
+    private var isCancellable: Bool {
+        if case .downloading = installer.state { return true }
+        return false
+    }
+
+    /// Ignores the download fraction so per-byte progress updates don't animate the whole view.
+    private var installPhaseKey: String {
+        switch installer.state {
+        case .idle: "idle"
+        case .downloading: "downloading"
+        case .importing: "importing"
+        case .unpacking: "unpacking"
+        case .locatingPosterBoard: "locating"
+        case .writing: "writing"
+        case .installed: "installed"
+        case .preparingRespring: "preparingRespring"
+        case .respringing: "respringing"
+        case .failure: "failure"
+        }
     }
 
     private var locationNoticePresented: Binding<Bool> {
@@ -136,32 +166,43 @@ private struct WallpaperHero: View {
     }
 }
 
+/// A single button that carries every state: the download fills it from the leading edge,
+/// later phases swap only the label, so the bar never changes size.
 private struct InstallBar: View {
     let state: InstallState
     let onInstall: () -> Void
 
+    private var downloadFraction: Double? {
+        if case .downloading(let progress) = state { return progress }
+        return nil
+    }
+
     var body: some View {
         VStack(spacing: 8) {
-            if state.isWorking || state.isTerminal {
-                InstallStatus(state: state)
-            }
-
             Button(action: onInstall) {
-                Label(
-                    state.buttonTitle,
-                    systemImage: state.isWorking ? "hourglass" : "arrow.down.circle.fill"
-                )
-                .frame(maxWidth: .infinity)
+                InstallButtonLabel(state: state)
             }
             .buttonStyle(.glassProminent)
             .controlSize(.large)
             .disabled(state.isWorking)
+            .overlay {
+                if let downloadFraction {
+                    GeometryReader { proxy in
+                        Rectangle()
+                            .fill(.white.opacity(0.24))
+                            .frame(width: proxy.size.width * downloadFraction)
+                            .animation(.linear(duration: 0.2), value: downloadFraction)
+                    }
+                    .clipShape(.capsule)
+                    .allowsHitTesting(false)
+                }
+            }
 
-            if state == .idle || state.isTerminal {
-                Text("The screen will briefly refresh after installation.")
-                    .font(.caption2)
-                    .foregroundStyle(.tertiary)
-                    .frame(maxWidth: .infinity)
+            if case .failure(let message) = state {
+                Text(message)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center)
             }
         }
         .padding(.horizontal, 16)
@@ -170,21 +211,49 @@ private struct InstallBar: View {
     }
 }
 
-private struct InstallStatus: View {
+private struct InstallButtonLabel: View {
     let state: InstallState
 
     var body: some View {
         HStack(spacing: 8) {
-            if state.isWorking {
-                ProgressView().controlSize(.small)
-            } else {
-                Image(systemName: "exclamationmark.triangle.fill")
-                    .foregroundStyle(.orange)
-            }
-            Text(state.message)
-                .font(.footnote)
-                .foregroundStyle(.secondary)
-            Spacer()
+            leadingIcon
+            Text(title)
+                .lineLimit(1)
+                .monospacedDigit()
+        }
+        .fontWeight(.semibold)
+        .frame(maxWidth: .infinity)
+    }
+
+    @ViewBuilder
+    private var leadingIcon: some View {
+        switch state {
+        case .downloading:
+            Image(systemName: "arrow.down.circle.fill")
+        case .importing, .unpacking, .locatingPosterBoard, .writing,
+             .preparingRespring, .respringing:
+            ProgressView()
+                .controlSize(.small)
+                .tint(.white)
+        case .installed:
+            Image(systemName: "checkmark.circle.fill")
+        case .failure:
+            Image(systemName: "arrow.clockwise")
+        case .idle:
+            Image(systemName: "arrow.down.circle.fill")
+        }
+    }
+
+    private var title: String {
+        switch state {
+        case .idle, .failure:
+            state.buttonTitle
+        case .downloading(let progress):
+            progress.formatted(.percent.precision(.fractionLength(0)))
+        case .installed:
+            String(localized: "Installed")
+        default:
+            state.message
         }
     }
 }

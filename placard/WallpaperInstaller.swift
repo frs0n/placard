@@ -1,6 +1,12 @@
 import Foundation
 import Observation
+import OSLog
 import ZIPFoundation
+
+private let installerLogger = Logger(
+    subsystem: Bundle.main.bundleIdentifier ?? "Placard",
+    category: "WallpaperInstaller"
+)
 
 enum WallpaperLocationNotice {
     static let preferenceKey = "ShowWallpaperLocationNotice"
@@ -24,8 +30,8 @@ final class InstallCoordinator {
     func install(_ wallpaper: Wallpaper) {
         guard !state.isWorking else { return }
         task?.cancel()
-        state = .downloading
-        task = Task {
+        state = .downloading(0)
+        task = Task { [self] in
             do {
                 try await installer.install(wallpaper) { [weak self] phase in
                     self?.state = phase
@@ -34,6 +40,7 @@ final class InstallCoordinator {
             } catch is CancellationError {
                 state = .idle
             } catch {
+                reportInstallFailure(error)
                 state = .failure(error.localizedDescription)
             }
         }
@@ -63,6 +70,7 @@ final class InstallCoordinator {
             } catch is CancellationError {
                 state = .idle
             } catch {
+                reportInstallFailure(error)
                 state = .failure(error.localizedDescription)
             }
         }
@@ -70,6 +78,13 @@ final class InstallCoordinator {
 
     func reset() {
         guard !state.isWorking else { return }
+        state = .idle
+    }
+
+    func cancel() {
+        guard case .downloading = state else { return }
+        task?.cancel()
+        task = nil
         state = .idle
     }
 
@@ -90,11 +105,19 @@ final class InstallCoordinator {
             continueAfterLocationNotice()
         }
     }
+
+    private func reportInstallFailure(_ error: Error) {
+        let nsError = error as NSError
+        let diagnostic = "Installation failed: \(String(reflecting: error)); domain=\(nsError.domain); code=\(nsError.code); userInfo=\(nsError.userInfo)"
+        installerLogger.error(
+            "\(diagnostic, privacy: .public)"
+        )
+    }
 }
 
 enum InstallState: Equatable, Sendable {
     case idle
-    case downloading
+    case downloading(Double)
     case importing
     case unpacking
     case locatingPosterBoard
@@ -122,7 +145,8 @@ enum InstallState: Equatable, Sendable {
     var message: String {
         switch self {
         case .idle: ""
-        case .downloading: String(localized: "Downloading…")
+        case .downloading(let progress):
+            String(localized: "Downloading…") + " \(progress.formatted(.percent.precision(.fractionLength(0))))"
         case .importing: String(localized: "Importing wallpaper…")
         case .unpacking: String(localized: "Unpacking…")
         case .locatingPosterBoard: String(localized: "Preparing…")
@@ -136,7 +160,8 @@ enum InstallState: Equatable, Sendable {
 
     var buttonTitle: String {
         switch self {
-        case .idle, .failure: String(localized: "Install Wallpaper")
+        case .idle: String(localized: "Install Wallpaper")
+        case .failure: String(localized: "Try Again")
         default: String(localized: "Installing…")
         }
     }
@@ -150,7 +175,7 @@ private actor WallpaperInstaller {
 
     func install(
         _ wallpaper: Wallpaper,
-        progress: @MainActor @Sendable (InstallState) -> Void
+        progress: @escaping @MainActor @Sendable (InstallState) -> Void
     ) async throws {
         #if targetEnvironment(simulator)
         throw InstallError.deviceRequired
@@ -166,8 +191,12 @@ private actor WallpaperInstaller {
         try fileManager.createDirectory(at: workspace, withIntermediateDirectories: true)
         defer { try? fileManager.removeItem(at: workspace) }
 
-        await progress(.downloading)
-        let packageURL = try await download(wallpaper.downloadURL, into: workspace)
+        await progress(.downloading(0))
+        let packageURL = try await download(wallpaper.downloadURL, into: workspace) { fraction in
+            Task { @MainActor in
+                progress(.downloading(fraction))
+            }
+        }
         try Task.checkCancellation()
 
         await progress(.unpacking)
@@ -259,23 +288,35 @@ private actor WallpaperInstaller {
         return destination
     }
 
-    private func download(_ remoteURL: URL, into workspace: URL) async throws -> URL {
+    private func download(
+        _ remoteURL: URL,
+        into workspace: URL,
+        progress: @escaping @Sendable (Double) -> Void
+    ) async throws -> URL {
         var request = URLRequest(url: remoteURL)
         request.timeoutInterval = 90
         request.cachePolicy = .reloadIgnoringLocalCacheData
-        let (temporaryURL, response) = try await URLSession.shared.download(for: request)
-        guard let response = response as? HTTPURLResponse,
-              response.statusCode == 200 else {
-            throw InstallError.downloadFailed
+        let destination = workspace.appending(path: "wallpaper.tendies")
+        let response: URLResponse
+        do {
+            response = try await PackageDownloader(
+                destination: destination,
+                progress: progress
+            ).download(request)
+        } catch {
+            throw DownloadError.transport(url: remoteURL, underlying: error)
+        }
+        guard let response = response as? HTTPURLResponse else {
+            throw DownloadError.invalidResponse(url: remoteURL)
+        }
+        guard response.statusCode == 200 else {
+            throw DownloadError.httpStatus(url: remoteURL, statusCode: response.statusCode)
         }
 
-        let fileSize = try temporaryURL.resourceValues(forKeys: [.fileSizeKey]).fileSize ?? 0
+        let fileSize = try destination.resourceValues(forKeys: [.fileSizeKey]).fileSize ?? 0
         guard fileSize > 0, Int64(fileSize) <= maximumPackageBytes else {
             throw InstallError.packageTooLarge
         }
-
-        let destination = workspace.appending(path: "wallpaper.tendies")
-        try fileManager.moveItem(at: temporaryURL, to: destination)
         return destination
     }
 
@@ -398,12 +439,88 @@ private actor WallpaperInstaller {
     }
 }
 
+private final class PackageDownloader: NSObject, URLSessionDownloadDelegate, @unchecked Sendable {
+    private let destination: URL
+    private let progress: @Sendable (Double) -> Void
+    private var session: URLSession?
+    private var task: URLSessionDownloadTask?
+    private var continuation: CheckedContinuation<URLResponse, Error>?
+    private var fileError: Error?
+
+    init(destination: URL, progress: @escaping @Sendable (Double) -> Void) {
+        self.destination = destination
+        self.progress = progress
+    }
+
+    func download(_ request: URLRequest) async throws -> URLResponse {
+        try await withTaskCancellationHandler {
+            try await withCheckedThrowingContinuation { continuation in
+                self.continuation = continuation
+                let configuration = URLSessionConfiguration.ephemeral
+                configuration.requestCachePolicy = .reloadIgnoringLocalCacheData
+                let session = URLSession(configuration: configuration, delegate: self, delegateQueue: nil)
+                self.session = session
+                let task = session.downloadTask(with: request)
+                self.task = task
+                task.resume()
+            }
+        } onCancel: {
+            self.task?.cancel()
+        }
+    }
+
+    func urlSession(
+        _ session: URLSession,
+        downloadTask: URLSessionDownloadTask,
+        didWriteData bytesWritten: Int64,
+        totalBytesWritten: Int64,
+        totalBytesExpectedToWrite: Int64
+    ) {
+        guard totalBytesExpectedToWrite > 0 else { return }
+        let fraction = min(max(Double(totalBytesWritten) / Double(totalBytesExpectedToWrite), 0), 1)
+        progress(fraction)
+    }
+
+    func urlSession(
+        _ session: URLSession,
+        downloadTask: URLSessionDownloadTask,
+        didFinishDownloadingTo location: URL
+    ) {
+        do {
+            try FileManager.default.moveItem(at: location, to: destination)
+        } catch {
+            fileError = error
+        }
+    }
+
+    func urlSession(
+        _ session: URLSession,
+        task: URLSessionTask,
+        didCompleteWithError error: Error?
+    ) {
+        defer {
+            continuation = nil
+            self.task = nil
+            self.session?.finishTasksAndInvalidate()
+            self.session = nil
+        }
+        if let error {
+            continuation?.resume(throwing: error)
+        } else if let fileError {
+            continuation?.resume(throwing: fileError)
+        } else if let response = task.response {
+            continuation?.resume(returning: response)
+        } else {
+            continuation?.resume(throwing: URLError(.badServerResponse))
+        }
+    }
+}
+
 enum InstallError: LocalizedError {
     case deviceRequired
     case unsupportedSystem
     case invalidDownloadURL
     case unsupportedPackageType
-    case downloadFailed
     case packageTooLarge
     case invalidPackage
     case noDescriptors
@@ -414,10 +531,31 @@ enum InstallError: LocalizedError {
         case .unsupportedSystem: String(localized: "This system version is not supported.")
         case .invalidDownloadURL: String(localized: "The download URL is invalid.")
         case .unsupportedPackageType: String(localized: "Choose a .tendies wallpaper package.")
-        case .downloadFailed: String(localized: "Download failed. Please try again later.")
         case .packageTooLarge: String(localized: "The wallpaper package is empty or too large.")
         case .invalidPackage: String(localized: "The wallpaper package is invalid or damaged.")
         case .noDescriptors: String(localized: "The wallpaper package contains no installable content.")
+        }
+    }
+}
+
+private enum DownloadError: LocalizedError, CustomStringConvertible {
+    case transport(url: URL, underlying: Error)
+    case invalidResponse(url: URL)
+    case httpStatus(url: URL, statusCode: Int)
+
+    var errorDescription: String? {
+        String(localized: "Download failed. Please try again later.")
+    }
+
+    var description: String {
+        switch self {
+        case .transport(let url, let underlying):
+            let error = underlying as NSError
+            return "transport url=\(url.absoluteString) domain=\(error.domain) code=\(error.code) description=\(error.localizedDescription) userInfo=\(error.userInfo)"
+        case .invalidResponse(let url):
+            return "invalidResponse url=\(url.absoluteString)"
+        case .httpStatus(let url, let statusCode):
+            return "httpStatus url=\(url.absoluteString) statusCode=\(statusCode)"
         }
     }
 }
