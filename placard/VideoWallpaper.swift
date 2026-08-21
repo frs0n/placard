@@ -85,9 +85,8 @@ final class VideoInstallCoordinator {
     }
 
     private func finishInstallation() {
-        if WallpaperLocationNotice.isEnabled {
-            state = .installed
-        } else {
+        state = .installed
+        if !WallpaperLocationNotice.isEnabled {
             continueAfterLocationNotice()
         }
     }
