@@ -171,14 +171,13 @@ private actor VideoWallpaperInstaller {
         try Task.checkCancellation()
 
         await progress(.locatingPosterBoard)
-        let appHash = try BadQuery.findPosterBoardHash()
+        let appHash = try await PosterBoardAccess.shared.findContainerHash()
         try Task.checkCancellation()
 
         await progress(.writing)
-        let paths = try BadQuery.writeDescriptors(
-            appHash: appHash,
-            extensionID: "com.apple.WallpaperKit.CollectionsPoster",
-            descriptorFolders: [descriptor]
+        let paths = try await PosterBoardAccess.shared.writeDescriptorGroups(
+            ["com.apple.WallpaperKit.CollectionsPoster": [descriptor]],
+            appHash: appHash
         )
         InstalledWallpaperNameStore.record(name: name, paths: paths)
         #endif

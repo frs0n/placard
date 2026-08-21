@@ -210,18 +210,14 @@ private actor WallpaperInstaller {
         try Task.checkCancellation()
 
         await progress(.locatingPosterBoard)
-        let appHash = try BadQuery.findPosterBoardHash()
+        let appHash = try await PosterBoardAccess.shared.findContainerHash()
         try Task.checkCancellation()
 
         await progress(.writing)
-        var writtenPaths: [String] = []
-        for (extensionID, descriptors) in descriptorGroups {
-            writtenPaths += try BadQuery.writeDescriptors(
-                appHash: appHash,
-                extensionID: extensionID,
-                descriptorFolders: descriptors
-            )
-        }
+        let writtenPaths = try await PosterBoardAccess.shared.writeDescriptorGroups(
+            descriptorGroups,
+            appHash: appHash
+        )
         InstalledWallpaperNameStore.record(name: wallpaper.name, paths: writtenPaths)
         #endif
     }
@@ -257,18 +253,14 @@ private actor WallpaperInstaller {
         try Task.checkCancellation()
 
         await progress(.locatingPosterBoard)
-        let appHash = try BadQuery.findPosterBoardHash()
+        let appHash = try await PosterBoardAccess.shared.findContainerHash()
         try Task.checkCancellation()
 
         await progress(.writing)
-        var writtenPaths: [String] = []
-        for (extensionID, descriptors) in descriptorGroups {
-            writtenPaths += try BadQuery.writeDescriptors(
-                appHash: appHash,
-                extensionID: extensionID,
-                descriptorFolders: descriptors
-            )
-        }
+        let writtenPaths = try await PosterBoardAccess.shared.writeDescriptorGroups(
+            descriptorGroups,
+            appHash: appHash
+        )
         InstalledWallpaperNameStore.record(
             name: sourceURL.deletingPathExtension().lastPathComponent,
             paths: writtenPaths
