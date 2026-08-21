@@ -203,7 +203,8 @@ private actor WallpaperInstaller {
         let extractedURL = try extract(packageURL, into: workspace)
         let descriptorGroups = try findDescriptorGroups(in: extractedURL)
         guard !descriptorGroups.isEmpty else { throw InstallError.noDescriptors }
-        for descriptors in descriptorGroups.values.flatMap({ $0 }) {
+        for descriptors in descriptorGroups.values.flatMap({ $0 })
+            where shouldRandomizeIdentifier(in: descriptors) {
             try randomizeIdentifier(in: descriptors)
         }
         try Task.checkCancellation()
@@ -249,7 +250,8 @@ private actor WallpaperInstaller {
         let extractedURL = try extract(packageURL, into: workspace)
         let descriptorGroups = try findDescriptorGroups(in: extractedURL)
         guard !descriptorGroups.isEmpty else { throw InstallError.noDescriptors }
-        for descriptors in descriptorGroups.values.flatMap({ $0 }) {
+        for descriptors in descriptorGroups.values.flatMap({ $0 })
+            where shouldRandomizeIdentifier(in: descriptors) {
             try randomizeIdentifier(in: descriptors)
         }
         try Task.checkCancellation()
@@ -416,6 +418,12 @@ private actor WallpaperInstaller {
             default:
                 continue
             }
+        }
+    }
+
+    private func shouldRandomizeIdentifier(in descriptor: URL) -> Bool {
+        !descriptor.pathComponents.contains {
+            $0.caseInsensitiveCompare("Container") == .orderedSame
         }
     }
 
