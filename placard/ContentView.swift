@@ -83,12 +83,12 @@ struct WallpaperBrowserView: View {
 
     private let catalog: WallpaperCatalog
 
-    @State private var category: WallpaperCategory = .custom
+    @State private var collection: WallpaperCollection = .caPlayground
     @State private var loadState: CatalogLoadState = .idle
     @State private var query = ""
     @State private var sortOrder: WallpaperSortOrder = .random
     @State private var ordered: [Wallpaper] = []
-    @State private var loadedCategory: WallpaperCategory?
+    @State private var loadedCollection: WallpaperCollection?
     @State private var isImportingPackage = false
     @State private var importCoordinator = InstallCoordinator()
 
@@ -102,8 +102,7 @@ struct WallpaperBrowserView: View {
         guard !trimmedQuery.isEmpty else { return ordered }
         return ordered.filter {
             $0.name.localizedCaseInsensitiveContains(trimmedQuery)
-                || (category != .apple
-                    && $0.authors?.localizedCaseInsensitiveContains(trimmedQuery) == true)
+                || $0.authors?.localizedCaseInsensitiveContains(trimmedQuery) == true
         }
     }
 
@@ -116,7 +115,7 @@ struct WallpaperBrowserView: View {
             } description: {
                 Text(message)
             } actions: {
-                Button("Retry") { Task { await load(category) } }
+                Button("Retry") { Task { await load(collection) } }
             }
         case .loaded where displayedWallpapers.isEmpty:
             ContentUnavailableView.search(text: query)
@@ -130,23 +129,20 @@ struct WallpaperBrowserView: View {
             ScrollView {
                 switch loadState {
                 case .idle, .loading:
-                    WallpaperLoadingGrid(showsAuthor: category != .apple)
+                    WallpaperLoadingGrid()
                 case .loaded where !displayedWallpapers.isEmpty:
-                    WallpaperGrid(
-                        wallpapers: displayedWallpapers,
-                        showsAuthor: category != .apple
-                    )
+                    WallpaperGrid(wallpapers: displayedWallpapers)
                 default:
                     EmptyView()
                 }
             }
             .overlay { unavailableOverlay }
-            .navigationTitle(category.title)
+            .navigationTitle(collection.title)
             .toolbar {
                 ToolbarItem(placement: .principal) {
-                    Picker("Category", selection: $category) {
-                        ForEach(WallpaperCategory.allCases) { category in
-                            Text(category.title).tag(category)
+                    Picker("Wallpaper Source", selection: $collection) {
+                        ForEach(WallpaperCollection.allCases) { collection in
+                            Text(collection.title).tag(collection)
                         }
                     }
                     .pickerStyle(.segmented)
@@ -176,7 +172,7 @@ struct WallpaperBrowserView: View {
             .onChange(of: sortOrder) { _, _ in applyOrder() }
             .searchable(text: $query, prompt: "Search")
             .refreshable { await refresh() }
-            .task(id: category) { await loadIfNeeded(category) }
+            .task(id: collection) { await loadIfNeeded(collection) }
             .fileImporter(
                 isPresented: $isImportingPackage,
                 allowedContentTypes: Self.importablePackageTypes,
@@ -242,33 +238,33 @@ struct WallpaperBrowserView: View {
         )
     }
 
-    /// Initial load / category change: show the loading grid, then fetch.
-    private func loadIfNeeded(_ targetCategory: WallpaperCategory) async {
-        guard loadedCategory != targetCategory else { return }
-        await load(targetCategory)
+    /// Initial load / collection change: show the loading grid, then fetch.
+    private func loadIfNeeded(_ targetCollection: WallpaperCollection) async {
+        guard loadedCollection != targetCollection else { return }
+        await load(targetCollection)
     }
 
-    private func load(_ targetCategory: WallpaperCategory) async {
+    private func load(_ targetCollection: WallpaperCollection) async {
         loadState = .loading
         ordered = []
-        await fetch(targetCategory, policy: .cached)
+        await fetch(targetCollection, policy: .cached)
     }
 
     /// Pull to refresh: keep the current content on screen while fetching so
     /// swapping to a loading state doesn't cancel the refresh task mid-request.
     private func refresh() async {
-        await fetch(category, policy: .refresh)
+        await fetch(collection, policy: .refresh)
     }
 
     private func fetch(
-        _ targetCategory: WallpaperCategory,
+        _ targetCollection: WallpaperCollection,
         policy: CatalogFetchPolicy
     ) async {
         do {
-            let wallpapers = try await catalog.fetch(targetCategory, policy)
-            guard targetCategory == category else { return }
+            let wallpapers = try await catalog.fetch(targetCollection, policy)
+            guard targetCollection == collection else { return }
             loadState = .loaded(wallpapers)
-            loadedCategory = targetCategory
+            loadedCollection = targetCollection
             applyOrder()
         } catch is CancellationError {
             return

@@ -1,15 +1,36 @@
 import Foundation
 
-enum WallpaperCategory: String, CaseIterable, Identifiable, Sendable {
-    case custom
+enum WallpaperCollection: String, CaseIterable, Identifiable, Sendable {
+    case caPlayground
+    case nugget
     case apple
 
     var id: Self { self }
 
     var title: String {
         switch self {
-        case .custom: String(localized: "Interactive")
+        case .caPlayground: "CAP"
+        case .nugget: "Nugget"
         case .apple: "Apple"
+        }
+    }
+}
+
+enum WallpaperSource: String, Codable, Sendable {
+    case nugget
+    case caPlayground
+
+    nonisolated var assetBaseURL: URL {
+        switch self {
+        case .nugget: WallpaperCatalog.nuggetAssetBaseURL
+        case .caPlayground: WallpaperCatalog.caPlaygroundAssetBaseURL
+        }
+    }
+
+    nonisolated var packageBaseURL: URL {
+        switch self {
+        case .nugget: WallpaperCatalog.nuggetPackageBaseURL
+        case .caPlayground: WallpaperCatalog.caPlaygroundPackageBaseURL
         }
     }
 }
@@ -55,14 +76,47 @@ struct Wallpaper: Codable, Identifiable, Equatable, Sendable {
     let preview: String
     let authors: String?
     let contest: String?
+    let source: WallpaperSource
 
-    var id: String { url }
-    nonisolated var downloadURL: URL { WallpaperCatalog.packageBaseURL.appending(path: url) }
-    nonisolated var previewURL: URL { WallpaperCatalog.assetBaseURL.appending(path: preview) }
+    var id: String { "\(source.rawValue):\(url)" }
+    nonisolated var downloadURL: URL { source.packageBaseURL.appending(path: url) }
+    nonisolated var previewURL: URL { source.assetBaseURL.appending(path: preview) }
 
     enum CodingKeys: String, CodingKey {
         case remoteID = "id"
-        case name, description, url, preview, authors, contest
+        case name, description, url, preview, authors, contest, source
+    }
+
+    nonisolated init(
+        remoteID: Int?,
+        name: String,
+        description: String?,
+        url: String,
+        preview: String,
+        authors: String?,
+        contest: String?,
+        source: WallpaperSource
+    ) {
+        self.remoteID = remoteID
+        self.name = name
+        self.description = description
+        self.url = url
+        self.preview = preview
+        self.authors = authors
+        self.contest = contest
+        self.source = source
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        remoteID = try container.decodeIfPresent(Int.self, forKey: .remoteID)
+        name = try container.decode(String.self, forKey: .name)
+        description = try container.decodeIfPresent(String.self, forKey: .description)
+        url = try container.decode(String.self, forKey: .url)
+        preview = try container.decode(String.self, forKey: .preview)
+        authors = try container.decodeIfPresent(String.self, forKey: .authors)
+        contest = try container.decodeIfPresent(String.self, forKey: .contest)
+        source = try container.decodeIfPresent(WallpaperSource.self, forKey: .source) ?? .nugget
     }
 
     nonisolated static let placeholder = Wallpaper(
@@ -72,7 +126,8 @@ struct Wallpaper: Codable, Identifiable, Equatable, Sendable {
         url: "placeholder.tendies",
         preview: "placeholder.png",
         authors: "Author",
-        contest: nil
+        contest: nil,
+        source: .nugget
     )
 
     nonisolated static let previewFixture = Wallpaper(
@@ -82,23 +137,44 @@ struct Wallpaper: Codable, Identifiable, Equatable, Sendable {
         url: "wallpapers/custom/Cipher.tendies",
         preview: "previews/custom/gifs/Cipher.gif",
         authors: "@mightycooldude12",
-        contest: "🏆 1st Place"
+        contest: "🏆 1st Place",
+        source: .nugget
     )
 }
 
 struct WallpaperCatalog: Sendable {
-    nonisolated static let assetBaseURL = URL(string: "https://cdn.jsdmirror.com/gh/SerStars/nugget-wallpapers@main/")!
-    nonisolated static let packageBaseURL = URL(string: "https://gh-proxy.com/https://raw.githubusercontent.com/SerStars/nugget-wallpapers/main/")!
+    nonisolated static let nuggetAssetBaseURL = URL(string: "https://cdn.jsdmirror.com/gh/SerStars/nugget-wallpapers@main/")!
+    nonisolated static let nuggetPackageBaseURL = URL(string: "https://gh-proxy.com/https://raw.githubusercontent.com/SerStars/nugget-wallpapers/main/")!
+    nonisolated static let caPlaygroundAssetBaseURL = URL(string: "https://cdn.jsdmirror.com/gh/CAPlayground/wallpapers@main/")!
+    nonisolated static let caPlaygroundPackageBaseURL = URL(string: "https://gh-proxy.com/https://raw.githubusercontent.com/CAPlayground/wallpapers/main/")!
 
-    var fetch: @Sendable (WallpaperCategory, CatalogFetchPolicy) async throws -> [Wallpaper]
+    var fetch: @Sendable (WallpaperCollection, CatalogFetchPolicy) async throws -> [Wallpaper]
 
-    static let live = WallpaperCatalog { category, policy in
-        let url = assetBaseURL.appending(path: "wallpapers-\(category.rawValue).json")
-        let data = try await RemoteAssetCache.shared.data(
-            for: url,
-            refresh: policy == .refresh
-        )
-        return try JSONDecoder().decode([Wallpaper].self, from: data)
+    static let live = WallpaperCatalog { collection, policy in
+        let refresh = policy == .refresh
+        switch collection {
+        case .nugget:
+            let data = try await RemoteAssetCache.shared.data(
+                for: nuggetAssetBaseURL.appending(path: "wallpapers-custom.json"),
+                refresh: refresh
+            )
+            return try JSONDecoder().decode([Wallpaper].self, from: data)
+        case .apple:
+            let data = try await RemoteAssetCache.shared.data(
+                for: nuggetAssetBaseURL.appending(path: "wallpapers-apple.json"),
+                refresh: refresh
+            )
+            return try JSONDecoder().decode([Wallpaper].self, from: data)
+        case .caPlayground:
+            let data = try await RemoteAssetCache.shared.data(
+                for: caPlaygroundAssetBaseURL.appending(path: "wallpapers.json"),
+                refresh: refresh
+            )
+            let response = try JSONDecoder().decode(CAPlaygroundCatalogResponse.self, from: data)
+            return response.wallpapers
+                .sorted { $0.date < $1.date }
+                .map(\.wallpaper)
+        }
     }
 
     static let preview = WallpaperCatalog { _, _ in
@@ -109,13 +185,40 @@ struct WallpaperCatalog: Sendable {
             url: "wallpapers/custom/RollingHills.tendies",
             preview: "previews/custom/gifs/RollingHills.gif",
             authors: "@i.mes",
-            contest: nil
+            contest: nil,
+            source: .nugget
         )
         return [.previewFixture, second]
     }
 
     static let failingPreview = WallpaperCatalog { _, _ in
         throw CatalogError.invalidResponse
+    }
+}
+
+private struct CAPlaygroundCatalogResponse: Decodable {
+    let wallpapers: [CAPlaygroundWallpaper]
+}
+
+private struct CAPlaygroundWallpaper: Decodable {
+    let name: String
+    let creator: String?
+    let description: String?
+    let file: String
+    let preview: String
+    let date: Int64
+
+    nonisolated var wallpaper: Wallpaper {
+        Wallpaper(
+            remoteID: nil,
+            name: name,
+            description: description,
+            url: file,
+            preview: preview,
+            authors: creator,
+            contest: nil,
+            source: .caPlayground
+        )
     }
 }
 

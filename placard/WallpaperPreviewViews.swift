@@ -4,7 +4,6 @@ import UIKit
 
 struct WallpaperGrid: View {
     let wallpapers: [Wallpaper]
-    let showsAuthor: Bool
     @Namespace private var transitionNamespace
     @State private var selectedWallpaper: Wallpaper?
 
@@ -18,7 +17,7 @@ struct WallpaperGrid: View {
                 } label: {
                     WallpaperCard(
                         wallpaper: wallpaper,
-                        showsAuthor: showsAuthor,
+                        showsAuthor: wallpaper.authors != nil,
                         transitionNamespace: transitionNamespace
                     )
                 }
@@ -32,7 +31,7 @@ struct WallpaperGrid: View {
             NavigationStack {
                 WallpaperDetailView(
                     wallpaper: wallpaper,
-                    showsAuthor: showsAuthor,
+                    showsAuthor: wallpaper.authors != nil,
                     transitionNamespace: transitionNamespace
                 )
             }
@@ -44,14 +43,12 @@ struct WallpaperGrid: View {
 }
 
 struct WallpaperLoadingGrid: View {
-    let showsAuthor: Bool
-
     private let columns = [GridItem(.adaptive(minimum: 164, maximum: 260), spacing: 16)]
 
     var body: some View {
         LazyVGrid(columns: columns, spacing: 12) {
             ForEach(0..<6, id: \.self) { _ in
-                WallpaperCard(wallpaper: .placeholder, showsAuthor: showsAuthor)
+                WallpaperCard(wallpaper: .placeholder, showsAuthor: true)
             }
         }
         .padding(.horizontal, 16)

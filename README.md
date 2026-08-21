@@ -54,7 +54,7 @@ Placard would not exist without the work of the following projects and contribut
 
 - [Pocket Poster](https://github.com/leminlimez/Pocket-Poster) by LeminLimez, the original project that inspired Placard's PosterBoard wallpaper workflow and `.tendies` support.
 - [bad_query](https://github.com/forcequitOS/bad_query) by forcequitOS, which provides the sandbox extension technique used to access PosterBoard data on supported systems.
-- [SerStars/nugget-wallpapers](https://github.com/SerStars/nugget-wallpapers), which provides the wallpaper metadata, previews, and packages shown in Placard.
+- [SerStars/nugget-wallpapers](https://github.com/SerStars/nugget-wallpapers) and [CAPlayground/wallpapers](https://github.com/CAPlayground/wallpapers), which provide the wallpaper metadata, previews, and packages shown in Placard.
 - [NeoSpring](https://github.com/rooootdev/neospring) by rooootdev and its contributors, whose SpringBoard refresh technique is used after wallpaper changes.
 - [ZIPFoundation](https://github.com/weichsel/ZIPFoundation) for ZIP archive handling.
 
