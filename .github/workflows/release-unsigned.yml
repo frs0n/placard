@@ -36,6 +36,9 @@ jobs:
           test -n "$VERSION"
           echo "VERSION=$VERSION" >> "$GITHUB_ENV"
 
+      - name: Prepare AirliftFFI
+        run: ./scripts/prepare-airlift.sh
+
       - name: Build unsigned archive
         run: |
           xcodebuild archive \

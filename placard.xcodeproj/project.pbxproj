@@ -8,11 +8,13 @@
 
 /* Begin PBXBuildFile section */
 		A10000000000000000000001 /* ZIPFoundation in Frameworks */ = {isa = PBXBuildFile; productRef = A10000000000000000000003 /* ZIPFoundation */; };
+		A1A1A1A1A1A1A1A1A1A1A101 /* AirliftFFI.xcframework in Frameworks */ = {isa = PBXBuildFile; fileRef = A1A1A1A1A1A1A1A1A1A1A102 /* AirliftFFI.xcframework */; };
 		D1664C2D303161240037E861 /* Appicon.icon in Resources */ = {isa = PBXBuildFile; fileRef = D1664C2C303161240037E861 /* Appicon.icon */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
 		000000000000000000000120 /* placard.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = placard.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		A1A1A1A1A1A1A1A1A1A1A102 /* AirliftFFI.xcframework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcframework; path = AirliftFFI.xcframework; sourceTree = "<group>"; };
 		D1664C2C303161240037E861 /* Appicon.icon */ = {isa = PBXFileReference; lastKnownFileType = folder.iconcomposer.icon; path = Appicon.icon; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -29,6 +31,7 @@
 			isa = PBXFrameworksBuildPhase;
 			files = (
 				A10000000000000000000001 /* ZIPFoundation in Frameworks */,
+				A1A1A1A1A1A1A1A1A1A1A101 /* AirliftFFI.xcframework in Frameworks */,
 			);
 		};
 /* End PBXFrameworksBuildPhase section */
@@ -37,6 +40,7 @@
 		000000000000000000000001 = {
 			isa = PBXGroup;
 			children = (
+				A1A1A1A1A1A1A1A1A1A1A102 /* AirliftFFI.xcframework */,
 				D1664C2C303161240037E861 /* Appicon.icon */,
 				000000000000000000000010 /* placard */,
 				000000000000000000000020 /* Products */,
@@ -288,6 +292,9 @@
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
+				"EXCLUDED_ARCHS[sdk=iphonesimulator*]" = x86_64;
+				OTHER_LDFLAGS = "$(inherited) -lc++";
+				INFOPLIST_KEY_NSLocalNetworkUsageDescription = "Placard uses the LocalDevVPN loopback tunnel to install PosterBoard wallpapers.";
 				LD_RUNPATH_SEARCH_PATHS = "@executable_path/Frameworks";
 				"LD_RUNPATH_SEARCH_PATHS[sdk=macosx*]" = "@executable_path/../Frameworks";
 				MARKETING_VERSION = 1.6.7;
@@ -332,6 +339,9 @@
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
+				"EXCLUDED_ARCHS[sdk=iphonesimulator*]" = x86_64;
+				OTHER_LDFLAGS = "$(inherited) -lc++";
+				INFOPLIST_KEY_NSLocalNetworkUsageDescription = "Placard uses the LocalDevVPN loopback tunnel to install PosterBoard wallpapers.";
 				LD_RUNPATH_SEARCH_PATHS = "@executable_path/Frameworks";
 				"LD_RUNPATH_SEARCH_PATHS[sdk=macosx*]" = "@executable_path/../Frameworks";
 				MARKETING_VERSION = 1.6.7;

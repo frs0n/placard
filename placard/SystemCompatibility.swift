@@ -12,7 +12,7 @@ enum SystemCompatibility {
         "24A5390f"  // 27.0 beta 4
     ]
 
-    static var isSupported: Bool {
+    nonisolated static var isSupported: Bool {
         let version = ProcessInfo.processInfo.operatingSystemVersion
         if version.majorVersion == 26 {
             return isAtMost(version, major: 26, minor: 6, patch: 1)
@@ -24,11 +24,22 @@ enum SystemCompatibility {
         return false
     }
 
+    /// The AirTraffic route used by AirCard-iOS targets iOS 27 and newer.
+    nonisolated static var canUseAirlift: Bool {
+        #if targetEnvironment(simulator)
+        false
+        #else
+        ProcessInfo.processInfo.operatingSystemVersion.majorVersion >= 27
+        #endif
+    }
+
+    nonisolated static var usesBadQuery: Bool { isSupported && BadQuery.isAvailable }
+
     static var supportedRangeDescription: String {
         String(localized: "iOS/iPadOS 26.0–26.6.1, or 27.0 developer beta 1–4")
     }
 
-    private static func isAtMost(
+    nonisolated private static func isAtMost(
         _ version: OperatingSystemVersion,
         major: Int,
         minor: Int,
@@ -39,7 +50,7 @@ enum SystemCompatibility {
         return lhs == rhs || lhs < rhs
     }
 
-    private static func currentBuildNumber() -> String? {
+    nonisolated private static func currentBuildNumber() -> String? {
         var size = 0
         guard sysctlbyname("kern.osversion", nil, &size, nil, 0) == 0, size > 0 else { return nil }
         var buffer = [CChar](repeating: 0, count: size)

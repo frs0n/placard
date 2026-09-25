@@ -30,7 +30,7 @@ private extension UIDocumentPickerViewController {
 struct PlacardApp: App {
     var body: some Scene {
         WindowGroup {
-            if SystemCompatibility.isSupported {
+            if SystemCompatibility.isSupported || SystemCompatibility.canUseAirlift {
                 PlacardRootView()
             } else {
                 UnsupportedSystemView()
@@ -63,7 +63,17 @@ struct PlacardRootView: View {
             }
 
             Tab("Library", systemImage: "rectangle.stack", value: .library) {
-                InstalledWallpapersView()
+                if SystemCompatibility.usesBadQuery {
+                    InstalledWallpapersView()
+                } else {
+                    ContentUnavailableView("Library unavailable", systemImage: "rectangle.stack", description: Text("The Airlift fallback currently installs wallpapers only."))
+                }
+            }
+
+            if !SystemCompatibility.usesBadQuery && SystemCompatibility.canUseAirlift {
+                Tab("Airlift", systemImage: "network", value: .airlift) {
+                    AirliftSetupView()
+                }
             }
         }
         .tint(.accentColor)
@@ -74,6 +84,7 @@ private enum AppTab: Hashable {
     case browse
     case create
     case library
+    case airlift
 }
 
 struct WallpaperBrowserView: View {
