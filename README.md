@@ -53,6 +53,8 @@ For a custom video wallpaper, Placard generates the required CAML and PosterBoar
 Placard would not exist without the work of the following projects and contributors:
 
 - [Pocket Poster](https://github.com/leminlimez/Pocket-Poster) by LeminLimez, the original project that inspired Placard's PosterBoard wallpaper workflow and `.tendies` support.
+- [AirCard-iOS](https://github.com/Mak5er/AirCard-iOS) by Mak5er, whose PosterBoard wallpaper injection, on-device pairing, Grappa helper, and bundled AirliftFFI implementation are used for Airlift installation.
+- [AirLift](https://github.com/0xjohnnydev/airlift) by 0xjohnny, for the underlying AirTraffic and ATAirlock research.
 - [bad_query](https://github.com/forcequitOS/bad_query) by forcequitOS, which provides the sandbox extension technique used to access PosterBoard data on supported systems.
 - [SerStars/nugget-wallpapers](https://github.com/SerStars/nugget-wallpapers) and [CAPlayground/wallpapers](https://github.com/CAPlayground/wallpapers), which provide the wallpaper metadata, previews, and packages shown in Placard.
 - [NeoSpring](https://github.com/rooootdev/neospring) by rooootdev and its contributors, whose SpringBoard refresh technique is used after wallpaper changes.
