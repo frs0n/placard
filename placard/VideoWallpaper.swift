@@ -153,7 +153,7 @@ private actor VideoWallpaperInstaller {
         #if targetEnvironment(simulator)
         throw VideoWallpaperError.deviceRequired
         #else
-        guard BadQuery.isAvailable else { throw VideoWallpaperError.unsupportedSystem }
+        guard SystemCompatibility.usesBadQuery || SystemCompatibility.canUseAirlift else { throw VideoWallpaperError.unsupportedSystem }
 
         await progress(.generating)
         let workspace = fileManager.temporaryDirectory
@@ -170,15 +170,27 @@ private actor VideoWallpaperInstaller {
         try Task.checkCancellation()
 
         await progress(.locatingPosterBoard)
-        let appHash = try BadQuery.findPosterBoardHash()
+        let appHash: String
+        if SystemCompatibility.usesBadQuery {
+            appHash = try BadQuery.findPosterBoardHash()
+        } else {
+            appHash = ""
+        }
         try Task.checkCancellation()
 
         await progress(.writing)
-        let paths = try BadQuery.writeDescriptors(
-            appHash: appHash,
-            extensionID: "com.apple.WallpaperKit.CollectionsPoster",
-            descriptorFolders: [descriptor]
-        )
+        let paths: [String]
+        if SystemCompatibility.usesBadQuery {
+            paths = try BadQuery.writeDescriptors(
+                appHash: appHash,
+                extensionID: "com.apple.WallpaperKit.CollectionsPoster",
+                descriptorFolders: [descriptor]
+            )
+        } else {
+            paths = try await AirliftFallback.writeDescriptors([
+                "com.apple.WallpaperKit.CollectionsPoster": [descriptor]
+            ])
+        }
         InstalledWallpaperNameStore.record(name: name, paths: paths)
         #endif
     }

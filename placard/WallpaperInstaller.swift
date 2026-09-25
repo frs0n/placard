@@ -179,7 +179,7 @@ private actor WallpaperInstaller {
         #if targetEnvironment(simulator)
         throw InstallError.deviceRequired
         #else
-        guard BadQuery.isAvailable else { throw InstallError.unsupportedSystem }
+        guard SystemCompatibility.usesBadQuery || SystemCompatibility.canUseAirlift else { throw InstallError.unsupportedSystem }
         guard wallpaper.downloadURL.scheme == "https",
               wallpaper.downloadURL.pathExtension.lowercased() == "tendies" else {
             throw InstallError.invalidDownloadURL
@@ -209,18 +209,16 @@ private actor WallpaperInstaller {
         try Task.checkCancellation()
 
         await progress(.locatingPosterBoard)
-        let appHash = try BadQuery.findPosterBoardHash()
+        let appHash: String
+        if SystemCompatibility.usesBadQuery {
+            appHash = try BadQuery.findPosterBoardHash()
+        } else {
+            appHash = ""
+        }
         try Task.checkCancellation()
 
         await progress(.writing)
-        var writtenPaths: [String] = []
-        for (extensionID, descriptors) in descriptorGroups {
-            writtenPaths += try BadQuery.writeDescriptors(
-                appHash: appHash,
-                extensionID: extensionID,
-                descriptorFolders: descriptors
-            )
-        }
+        let writtenPaths = try await writeDescriptors(descriptorGroups, appHash: appHash)
         InstalledWallpaperNameStore.record(name: wallpaper.name, paths: writtenPaths)
         #endif
     }
@@ -232,7 +230,7 @@ private actor WallpaperInstaller {
         #if targetEnvironment(simulator)
         throw InstallError.deviceRequired
         #else
-        guard BadQuery.isAvailable else { throw InstallError.unsupportedSystem }
+        guard SystemCompatibility.usesBadQuery || SystemCompatibility.canUseAirlift else { throw InstallError.unsupportedSystem }
         guard sourceURL.pathExtension.lowercased() == "tendies" else {
             throw InstallError.unsupportedPackageType
         }
@@ -256,23 +254,34 @@ private actor WallpaperInstaller {
         try Task.checkCancellation()
 
         await progress(.locatingPosterBoard)
-        let appHash = try BadQuery.findPosterBoardHash()
+        let appHash: String
+        if SystemCompatibility.usesBadQuery {
+            appHash = try BadQuery.findPosterBoardHash()
+        } else {
+            appHash = ""
+        }
         try Task.checkCancellation()
 
         await progress(.writing)
-        var writtenPaths: [String] = []
-        for (extensionID, descriptors) in descriptorGroups {
-            writtenPaths += try BadQuery.writeDescriptors(
-                appHash: appHash,
-                extensionID: extensionID,
-                descriptorFolders: descriptors
-            )
-        }
+        let writtenPaths = try await writeDescriptors(descriptorGroups, appHash: appHash)
         InstalledWallpaperNameStore.record(
             name: sourceURL.deletingPathExtension().lastPathComponent,
             paths: writtenPaths
         )
         #endif
+    }
+
+    private func writeDescriptors(_ groups: [String: [URL]], appHash: String) async throws -> [String] {
+        if !SystemCompatibility.usesBadQuery {
+            return try await AirliftFallback.writeDescriptors(groups)
+        }
+        var writtenPaths: [String] = []
+        for (extensionID, descriptors) in groups {
+            writtenPaths += try BadQuery.writeDescriptors(
+                appHash: appHash, extensionID: extensionID, descriptorFolders: descriptors
+            )
+        }
+        return writtenPaths
     }
 
     private func copyImportedPackage(_ sourceURL: URL, into workspace: URL) throws -> URL {
