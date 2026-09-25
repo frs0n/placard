@@ -179,7 +179,6 @@ private actor WallpaperInstaller {
         #if targetEnvironment(simulator)
         throw InstallError.deviceRequired
         #else
-        guard BadQuery.isAvailable else { throw InstallError.unsupportedSystem }
         guard wallpaper.downloadURL.scheme == "https",
               wallpaper.downloadURL.pathExtension.lowercased() == "tendies" else {
             throw InstallError.invalidDownloadURL
@@ -198,6 +197,12 @@ private actor WallpaperInstaller {
         }
         try Task.checkCancellation()
 
+        if !(await SystemCompatibility.isSupported) {
+            try await AirliftWallpaperService.shared.install(packageAt: packageURL, progress: progress)
+            return
+        }
+
+        guard BadQuery.isAvailable else { throw InstallError.unsupportedSystem }
         await progress(.unpacking)
         let extractedURL = try extract(packageURL, into: workspace)
         let descriptorGroups = try findDescriptorGroups(in: extractedURL)
@@ -227,12 +232,11 @@ private actor WallpaperInstaller {
 
     func install(
         packageAt sourceURL: URL,
-        progress: @MainActor @Sendable (InstallState) -> Void
+        progress: @escaping @MainActor @Sendable (InstallState) -> Void
     ) async throws {
         #if targetEnvironment(simulator)
         throw InstallError.deviceRequired
         #else
-        guard BadQuery.isAvailable else { throw InstallError.unsupportedSystem }
         guard sourceURL.pathExtension.lowercased() == "tendies" else {
             throw InstallError.unsupportedPackageType
         }
@@ -245,6 +249,12 @@ private actor WallpaperInstaller {
         let packageURL = try copyImportedPackage(sourceURL, into: workspace)
         try Task.checkCancellation()
 
+        if !(await SystemCompatibility.isSupported) {
+            try await AirliftWallpaperService.shared.install(packageAt: packageURL, progress: progress)
+            return
+        }
+
+        guard BadQuery.isAvailable else { throw InstallError.unsupportedSystem }
         await progress(.unpacking)
         let extractedURL = try extract(packageURL, into: workspace)
         let descriptorGroups = try findDescriptorGroups(in: extractedURL)

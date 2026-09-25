@@ -2,6 +2,7 @@ import AVFoundation
 import CoreImage
 import CoreTransferable
 import Foundation
+import ZIPFoundation
 import Observation
 import PhotosUI
 import SwiftUI
@@ -148,13 +149,11 @@ private actor VideoWallpaperInstaller {
         name: String,
         autoReverses: Bool,
         frameRate: VideoWallpaperFrameRate,
-        progress: @MainActor @Sendable (VideoInstallState) -> Void
+        progress: @escaping @MainActor @Sendable (VideoInstallState) -> Void
     ) async throws {
         #if targetEnvironment(simulator)
         throw VideoWallpaperError.deviceRequired
         #else
-        guard BadQuery.isAvailable else { throw VideoWallpaperError.unsupportedSystem }
-
         await progress(.generating)
         let workspace = fileManager.temporaryDirectory
             .appending(path: "Placard-Video-Install-\(UUID().uuidString)", directoryHint: .isDirectory)
@@ -169,6 +168,23 @@ private actor VideoWallpaperInstaller {
         )
         try Task.checkCancellation()
 
+        if !(await SystemCompatibility.isSupported) {
+            let archiveRoot = workspace.appending(path: "AirliftPackage/descriptors")
+            try fileManager.createDirectory(at: archiveRoot, withIntermediateDirectories: true)
+            try fileManager.copyItem(at: descriptor, to: archiveRoot.appending(path: descriptor.lastPathComponent))
+            let packageURL = workspace.appending(path: "wallpaper.tendies")
+            try fileManager.zipItem(at: archiveRoot.deletingLastPathComponent(), to: packageURL, shouldKeepParent: false)
+            try await AirliftWallpaperService.shared.install(packageAt: packageURL) { phase in
+                switch phase {
+                case .locatingPosterBoard: progress(.locatingPosterBoard)
+                case .writing: progress(.writing)
+                default: break
+                }
+            }
+            return
+        }
+
+        guard BadQuery.isAvailable else { throw VideoWallpaperError.unsupportedSystem }
         await progress(.locatingPosterBoard)
         let appHash = try BadQuery.findPosterBoardHash()
         try Task.checkCancellation()

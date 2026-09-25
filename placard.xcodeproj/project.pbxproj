@@ -8,11 +8,13 @@
 
 /* Begin PBXBuildFile section */
 		A10000000000000000000001 /* ZIPFoundation in Frameworks */ = {isa = PBXBuildFile; productRef = A10000000000000000000003 /* ZIPFoundation */; };
+		B10000000000000000000001 /* Vendor/AirCard/AirliftFFI.xcframework in Frameworks */ = {isa = PBXBuildFile; fileRef = B10000000000000000000002 /* Vendor/AirCard/AirliftFFI.xcframework */; };
 		D1664C2D303161240037E861 /* Appicon.icon in Resources */ = {isa = PBXBuildFile; fileRef = D1664C2C303161240037E861 /* Appicon.icon */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
 		000000000000000000000120 /* placard.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = placard.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		B10000000000000000000002 /* Vendor/AirCard/AirliftFFI.xcframework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcframework; path = Vendor/AirCard/AirliftFFI.xcframework; sourceTree = "<group>"; };
 		D1664C2C303161240037E861 /* Appicon.icon */ = {isa = PBXFileReference; lastKnownFileType = folder.iconcomposer.icon; path = Appicon.icon; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -29,6 +31,7 @@
 			isa = PBXFrameworksBuildPhase;
 			files = (
 				A10000000000000000000001 /* ZIPFoundation in Frameworks */,
+				B10000000000000000000001 /* Vendor/AirCard/AirliftFFI.xcframework in Frameworks */,
 			);
 		};
 /* End PBXFrameworksBuildPhase section */
@@ -38,6 +41,7 @@
 			isa = PBXGroup;
 			children = (
 				D1664C2C303161240037E861 /* Appicon.icon */,
+				B10000000000000000000002 /* Vendor/AirCard/AirliftFFI.xcframework */,
 				000000000000000000000010 /* placard */,
 				000000000000000000000020 /* Products */,
 			);
@@ -271,8 +275,11 @@
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = 32SCVH99SP;
 				ENABLE_PREVIEWS = YES;
+				"EXCLUDED_ARCHS[sdk=iphonesimulator*]" = x86_64;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = "Airlift-Info.plist";
 				INFOPLIST_KEY_CFBundleDisplayName = Placard;
+				INFOPLIST_KEY_NSLocalNetworkUsageDescription = "Placard pairs this device and connects through LocalDevVPN to install wallpapers.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphoneos*]" = YES;
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphonesimulator*]" = YES;
@@ -290,12 +297,17 @@
 				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
 				LD_RUNPATH_SEARCH_PATHS = "@executable_path/Frameworks";
 				"LD_RUNPATH_SEARCH_PATHS[sdk=macosx*]" = "@executable_path/../Frameworks";
-				MARKETING_VERSION = 1.6.7;
+				MARKETING_VERSION = 1.9;
+				OTHER_LDFLAGS = (
+					"$(inherited)",
+					"-lc++",
+				);
 				PRODUCT_BUNDLE_IDENTIFIER = me.ssus.placard;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				REGISTER_APP_GROUPS = YES;
 				SDKROOT = iphoneos;
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				STRIP_STYLE = "non-global";
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
 				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
@@ -315,8 +327,11 @@
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = 32SCVH99SP;
 				ENABLE_PREVIEWS = YES;
+				"EXCLUDED_ARCHS[sdk=iphonesimulator*]" = x86_64;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = "Airlift-Info.plist";
 				INFOPLIST_KEY_CFBundleDisplayName = Placard;
+				INFOPLIST_KEY_NSLocalNetworkUsageDescription = "Placard pairs this device and connects through LocalDevVPN to install wallpapers.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphoneos*]" = YES;
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphonesimulator*]" = YES;
@@ -334,12 +349,17 @@
 				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
 				LD_RUNPATH_SEARCH_PATHS = "@executable_path/Frameworks";
 				"LD_RUNPATH_SEARCH_PATHS[sdk=macosx*]" = "@executable_path/../Frameworks";
-				MARKETING_VERSION = 1.6.7;
+				MARKETING_VERSION = 1.9;
+				OTHER_LDFLAGS = (
+					"$(inherited)",
+					"-lc++",
+				);
 				PRODUCT_BUNDLE_IDENTIFIER = me.ssus.placard;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				REGISTER_APP_GROUPS = YES;
 				SDKROOT = iphoneos;
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				STRIP_STYLE = "non-global";
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
 				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;

@@ -33,7 +33,7 @@ struct PlacardApp: App {
             if SystemCompatibility.isSupported {
                 PlacardRootView()
             } else {
-                UnsupportedSystemView()
+                AirliftEntryView()
             }
         }
     }

@@ -113,3 +113,13 @@
 "%@'s system wallpaper snapshot" = "%@'s system wallpaper snapshot";
 "Try Again" = "Try Again";
 "Installed" = "Installed";
+"Pair this iPhone" = "Pair this iPhone";
+"Start pairing, then open Settings › Privacy & Security › Developer Mode › Pair with Placard." = "Start pairing, then open Settings › Privacy & Security › Developer Mode › Pair with Placard.";
+"Waiting for pairing…" = "Waiting for pairing…";
+"Start pairing" = "Start pairing";
+"Connect LocalDevVPN" = "Connect LocalDevVPN";
+"Open LocalDevVPN, tap Connect, then return to Placard." = "Open LocalDevVPN, tap Connect, then return to Placard.";
+"Open LocalDevVPN" = "Open LocalDevVPN";
+"Pair again" = "Pair again";
+"Checking connection…" = "Checking connection…";
+"Check and enter" = "Check and enter";

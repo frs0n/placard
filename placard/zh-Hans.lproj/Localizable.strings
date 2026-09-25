@@ -113,3 +113,13 @@
 "%@'s system wallpaper snapshot" = "%@ 的系统壁纸快照";
 "Try Again" = "重试";
 "Installed" = "已安装";
+"Pair this iPhone" = "配对这台 iPhone";
+"Start pairing, then open Settings › Privacy & Security › Developer Mode › Pair with Placard." = "开始配对后，前往“设置 › 隐私与安全性 › 开发者模式 › 与 Placard 配对”。";
+"Waiting for pairing…" = "等待配对…";
+"Start pairing" = "开始配对";
+"Connect LocalDevVPN" = "连接 LocalDevVPN";
+"Open LocalDevVPN, tap Connect, then return to Placard." = "打开 LocalDevVPN，点击“连接”，连接成功后返回 Placard。";
+"Open LocalDevVPN" = "打开 LocalDevVPN";
+"Pair again" = "重新配对";
+"Checking connection…" = "检查连接…";
+"Check and enter" = "检查并进入";
