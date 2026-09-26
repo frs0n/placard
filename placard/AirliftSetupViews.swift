@@ -1,6 +1,40 @@
 import SwiftUI
 import UIKit
 
+struct AirliftWiFiCheckingView: View {
+    var body: some View {
+        VStack(spacing: 16) {
+            Spacer()
+            ProgressView()
+                .controlSize(.large)
+            Text("Checking Wi-Fi…")
+                .font(.headline)
+                .foregroundStyle(.secondary)
+            Spacer()
+        }
+        .padding(24)
+    }
+}
+
+struct AirliftWiFiRequiredView: View {
+    var body: some View {
+        VStack(alignment: .leading, spacing: 20) {
+            Spacer()
+            Image(systemName: "wifi.exclamationmark")
+                .font(.system(size: 44))
+                .foregroundStyle(.tint)
+            Text("Wi-Fi Required")
+                .font(.largeTitle.bold())
+            Text("Airlift requires an active Wi-Fi connection. LocalDevVPN does not work over cellular.")
+                .foregroundStyle(.secondary)
+            Text("Connect this iPhone to a Wi-Fi network to continue. Placard will continue automatically once Wi-Fi is available.")
+                .foregroundStyle(.secondary)
+            Spacer()
+        }
+        .padding(24)
+    }
+}
+
 struct AirliftPairingView: View {
     let running: Bool
     let pin: String?
@@ -92,6 +126,10 @@ struct AirliftVPNView: View {
             }
         }
     }
+}
+
+#Preview("Wi-Fi Required") {
+    AirliftWiFiRequiredView()
 }
 
 #Preview("Pairing") {
