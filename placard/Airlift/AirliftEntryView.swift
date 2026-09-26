@@ -1,5 +1,6 @@
 import SwiftUI
 import Network
+import Combine
 
 @MainActor
 final class AirliftWiFiMonitor: ObservableObject {
