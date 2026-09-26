@@ -300,12 +300,18 @@ public final class TendiesEngine {
             log("  ✨ Found \(descriptors.count) descriptor(s) to install")
 
             for (descIndex, descItem) in descriptors.enumerated() {
-                let targetUUID = UUID().uuidString.uppercased()
-                let randomizedID = Int.random(in: 10000...99999)
-                log("  [\(descIndex + 1)/\(descriptors.count)] Descriptor \(targetUUID) (ID: \(randomizedID)) for \(descItem.ext)…")
+                let targetUUID = descItem.preservesIdentifiers
+                    ? descItem.url.lastPathComponent
+                    : UUID().uuidString.uppercased()
+                log("  [\(descIndex + 1)/\(descriptors.count)] Descriptor \(targetUUID) for \(descItem.ext)…")
 
-                // Update plist identifiers to ensure unique indexing without collisions
-                updatePlistIdentifiers(in: descItem.url, randomizedID: randomizedID)
+                // Nugget's Container path preserves both directory UUIDs and file contents.
+                // Only standalone descriptor packages receive randomized identifiers.
+                if descItem.preservesIdentifiers {
+                    log("  Preserving container descriptor identifiers and configuration")
+                } else {
+                    updatePlistIdentifiers(in: descItem.url, randomizedID: Int.random(in: 10000...99999))
+                }
 
                 for sVer in versionsToWrite {
                     // Primary destination
@@ -476,7 +482,7 @@ public final class TendiesEngine {
         }
     }
 
-    // MARK: - Plist Identifier Randomization (Matches Nugget implementation)
+    // MARK: - Plist Identifier Randomization
 
     private func updatePlistIdentifiers(in folderURL: URL, randomizedID: Int) {
         let fileManager = FileManager.default
@@ -567,16 +573,30 @@ public final class TendiesEngine {
 
     // MARK: - Find Descriptors With Targeted Extensions
 
-    private func findDescriptorsWithExtensions(in rootURL: URL, defaultExt: String) -> [(ext: String, url: URL)] {
+    private func findDescriptorsWithExtensions(in rootURL: URL, defaultExt: String) -> [(ext: String, url: URL, preservesIdentifiers: Bool)] {
         let fileManager = FileManager.default
-        var results: [(ext: String, url: URL)] = []
+        var results: [(ext: String, url: URL, preservesIdentifiers: Bool)] = []
 
-        // 1. Check for standard container structure
-        let containerFolder = rootURL.appendingPathComponent("container")
-        let searchRoots = fileManager.fileExists(atPath: containerFolder.path) ? [containerFolder, rootURL] : [rootURL]
+        // 1. Find standard container structures, including packages with an outer folder.
+        let extensionsPath = "Library/Application Support/PRBPosterExtensionDataStore/61/Extensions"
+        var extensionDirectories: [URL] = []
+        if let enumerator = fileManager.enumerator(
+            at: rootURL,
+            includingPropertiesForKeys: [.isDirectoryKey],
+            options: [.skipsHiddenFiles]
+        ) {
+            while let directory = enumerator.nextObject() as? URL {
+                guard (try? directory.resourceValues(forKeys: [.isDirectoryKey]).isDirectory) == true else { continue }
+                if directory.lastPathComponent == "__MACOSX" {
+                    enumerator.skipDescendants()
+                } else if directory.path.hasSuffix("/" + extensionsPath) {
+                    extensionDirectories.append(directory)
+                    enumerator.skipDescendants()
+                }
+            }
+        }
 
-        for sRoot in searchRoots {
-            let extensionsDir = sRoot.appendingPathComponent("Library/Application Support/PRBPosterExtensionDataStore/61/Extensions")
+        for extensionsDir in extensionDirectories {
             if fileManager.fileExists(atPath: extensionsDir.path) {
                 if let extEntries = try? fileManager.contentsOfDirectory(at: extensionsDir, includingPropertiesForKeys: [.isDirectoryKey], options: [.skipsHiddenFiles]) {
                     for extFolder in extEntries {
@@ -585,7 +605,7 @@ public final class TendiesEngine {
                            let descEntries = try? fileManager.contentsOfDirectory(at: descDir, includingPropertiesForKeys: [.isDirectoryKey], options: [.skipsHiddenFiles]) {
                             for d in descEntries where (try? d.resourceValues(forKeys: [.isDirectoryKey]).isDirectory) ?? false {
                                 if !d.lastPathComponent.hasPrefix(".") && d.lastPathComponent != "__MACOSX" {
-                                    results.append((ext: extFolder.lastPathComponent, url: d))
+                                    results.append((ext: extFolder.lastPathComponent, url: d, preservesIdentifiers: true))
                                 }
                             }
                         }
@@ -604,7 +624,7 @@ public final class TendiesEngine {
                let contents = try? fileManager.contentsOfDirectory(at: descDir, includingPropertiesForKeys: [.isDirectoryKey], options: [.skipsHiddenFiles]) {
                 for d in contents where (try? d.resourceValues(forKeys: [.isDirectoryKey]).isDirectory) ?? false {
                     if !d.lastPathComponent.hasPrefix(".") && d.lastPathComponent != "__MACOSX" {
-                        results.append((ext: defaultExt, url: d))
+                        results.append((ext: defaultExt, url: d, preservesIdentifiers: false))
                     }
                 }
             }
@@ -620,7 +640,7 @@ public final class TendiesEngine {
                let contents = try? fileManager.contentsOfDirectory(at: descDir, includingPropertiesForKeys: [.isDirectoryKey], options: [.skipsHiddenFiles]) {
                 for d in contents where (try? d.resourceValues(forKeys: [.isDirectoryKey]).isDirectory) ?? false {
                     if !d.lastPathComponent.hasPrefix(".") && d.lastPathComponent != "__MACOSX" {
-                        results.append((ext: "com.apple.PhotosUIPrivate.PhotosPosterProvider", url: d))
+                        results.append((ext: "com.apple.PhotosUIPrivate.PhotosPosterProvider", url: d, preservesIdentifiers: false))
                     }
                 }
             }
@@ -633,7 +653,7 @@ public final class TendiesEngine {
         if fileManager.fileExists(atPath: rootURL.appendingPathComponent("versions").path) ||
            fileManager.fileExists(atPath: rootURL.appendingPathComponent("Wallpaper.plist").path) ||
            fileManager.fileExists(atPath: rootURL.appendingPathComponent("com.apple.posterkit.provider.descriptor.identifier").path) {
-            return [(ext: defaultExt, url: rootURL)]
+            return [(ext: defaultExt, url: rootURL, preservesIdentifiers: false)]
         }
 
         // 5. Fallback: scan any subfolder with "versions" or UUID name
@@ -643,12 +663,12 @@ public final class TendiesEngine {
                     let hasVersions = fileManager.fileExists(atPath: sub.appendingPathComponent("versions").path)
                     let isUUID = UUID(uuidString: sub.lastPathComponent) != nil
                     if hasVersions || isUUID {
-                        results.append((ext: defaultExt, url: sub))
+                        results.append((ext: defaultExt, url: sub, preservesIdentifiers: false))
                     }
                 }
             }
         }
 
-        return results.isEmpty ? [(ext: defaultExt, url: rootURL)] : results
+        return results.isEmpty ? [(ext: defaultExt, url: rootURL, preservesIdentifiers: false)] : results
     }
 }
