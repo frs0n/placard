@@ -1,8 +1,39 @@
 import SwiftUI
+import Network
+import Combine
+
+@MainActor
+final class AirliftWiFiMonitor: ObservableObject {
+    enum Status {
+        case checking
+        case connected
+        case disconnected
+    }
+
+    @Published private(set) var status: Status = .checking
+
+    private let monitor = NWPathMonitor(requiredInterfaceType: .wifi)
+    private let queue = DispatchQueue(label: "me.ssus.placard.airlift.wifi-monitor")
+
+    init() {
+        monitor.pathUpdateHandler = { [weak self] path in
+            let status: Status = path.status == .satisfied ? .connected : .disconnected
+            DispatchQueue.main.async {
+                self?.status = status
+            }
+        }
+        monitor.start(queue: queue)
+    }
+
+    deinit {
+        monitor.cancel()
+    }
+}
 
 /// Connects the existing setup screens to AirCard's on-device pairing host.
 struct AirliftEntryView: View {
     @ObservedObject private var pairing = PairingController.shared
+    @StateObject private var wifiMonitor = AirliftWiFiMonitor()
     @State private var paired = FileManager.default.fileExists(atPath: PairingController.pairingFilePath())
     @State private var connected = false
     @State private var checking = false
@@ -10,23 +41,30 @@ struct AirliftEntryView: View {
     @State private var connectionError: String?
 
     var body: some View {
-        if connected {
-            PlacardRootView()
-        } else if paired {
-            AirliftVPNView(
-                connectionError: connectionError, checking: checking,
-                onCheck: checkConnection,
-                onPairAgain: {
-                    paired = false
-                    pairingError = nil
-                    connectionError = nil
-                }
-            )
-        } else {
-            AirliftPairingView(
-                running: pairing.running, pin: pairing.pairingPIN,
-                error: pairingError, onStart: startPairing
-            )
+        switch wifiMonitor.status {
+        case .checking:
+            AirliftWiFiCheckingView()
+        case .disconnected:
+            AirliftWiFiRequiredView()
+        case .connected:
+            if connected {
+                PlacardRootView()
+            } else if paired {
+                AirliftVPNView(
+                    connectionError: connectionError, checking: checking,
+                    onCheck: checkConnection,
+                    onPairAgain: {
+                        paired = false
+                        pairingError = nil
+                        connectionError = nil
+                    }
+                )
+            } else {
+                AirliftPairingView(
+                    running: pairing.running, pin: pairing.pairingPIN,
+                    error: pairingError, onStart: startPairing
+                )
+            }
         }
     }
 
