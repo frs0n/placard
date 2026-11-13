@@ -102,7 +102,7 @@
 "Unable to construct the query path." = "无法构造查询路径。";
 "Unable to enumerate app containers." = "无法枚举应用容器。";
 "PosterBoard's data container was not found." = "没有找到 PosterBoard 数据容器。";
-"bad_query failed (%lld)." = "bad_query 失败（%lld）。";
+"worse_query failed (%lld)." = "worse_query 失败（%lld）。";
 "Wallpaper configuration path validation failed." = "壁纸配置路径校验失败。";
 "This wallpaper item no longer exists." = "这个壁纸项目已经不存在。";
 "The system did not remove this wallpaper item." = "系统没有移除这个壁纸项目。";
@@ -113,3 +113,9 @@
 "%@'s system wallpaper snapshot" = "%@ 的系统壁纸快照";
 "Try Again" = "重试";
 "Installed" = "已安装";
+
+"No usable App Group was found in the app signature. Sign with a provisioning profile that includes an App Group." = "应用签名中没有可用的 App Group。请使用包含 App Group 的描述文件签名。";
+
+"Unable to prepare the App Group cache. It must be empty and writable." = "无法准备 App Group 缓存目录。该目录必须为空且可写。";
+
+"iOS/iPadOS 26.0 or later" = "iOS/iPadOS 26.0 或更高版本";

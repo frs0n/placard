@@ -26,7 +26,7 @@ Placard is an iOS app for browsing, creating, installing, and managing custom Po
 
 - Xcode 26 or later
 - iOS 26 or later
-- A physical device on which `bad_query` is supported for installation and library management
+- A physical device on which `worse_query` is supported for installation and library management
 
 The Simulator can be used to browse the catalog and develop the interface, but it cannot install or manage system wallpapers.
 
@@ -35,13 +35,14 @@ The Simulator can be used to browse the catalog and develop the interface, but i
 1. Clone this repository.
 2. Open `placard.xcodeproj` in Xcode.
 3. Select the **placard** target and choose your own development team under **Signing & Capabilities**.
-4. Build and run the app on your device.
+4. Enable an App Group in your provisioning profile (by default `group.me.ssus.placard`). If you change the bundle identifier, update the group accordingly. Re-signing tools must preserve an accessible App Group entitlement.
+5. Build and run the app on your device.
 
 Swift Package Manager resolves [ZIPFoundation](https://github.com/weichsel/ZIPFoundation) automatically when the project is opened.
 
 ## How it works
 
-Placard fetches the community wallpaper catalog, downloads the selected `.tendies` package, validates and extracts its PosterBoard descriptors, and assigns fresh identifiers before installation. On supported devices, `bad_query` provides access to the PosterBoard container. Placard also uses that access to display and remove installed wallpapers.
+Placard fetches the community wallpaper catalog, downloads the selected `.tendies` package, validates and extracts its PosterBoard descriptors, and assigns fresh identifiers before installation. On supported devices, `worse_query` provides access to the PosterBoard container. Placard also uses that access to display and remove installed wallpapers.
 
 For a custom video wallpaper, Placard generates the required CAML and PosterBoard descriptor structure locally, then installs it through the same pipeline. Wallpaper changes finish with a SpringBoard refresh powered by NeoSpring.
 
@@ -53,7 +54,7 @@ For a custom video wallpaper, Placard generates the required CAML and PosterBoar
 Placard would not exist without the work of the following projects and contributors:
 
 - [Pocket Poster](https://github.com/leminlimez/Pocket-Poster) by LeminLimez, the original project that inspired Placard's PosterBoard wallpaper workflow and `.tendies` support.
-- [bad_query](https://github.com/forcequitOS/bad_query) by forcequitOS, which provides the sandbox extension technique used to access PosterBoard data on supported systems.
+- [worse_query](https://github.com/forcequitOS/worse_query) by forcequitOS, which provides the sandbox extension technique used to access PosterBoard data on supported systems.
 - [SerStars/nugget-wallpapers](https://github.com/SerStars/nugget-wallpapers) and [CAPlayground/wallpapers](https://github.com/CAPlayground/wallpapers), which provide the wallpaper metadata, previews, and packages shown in Placard.
 - [NeoSpring](https://github.com/rooootdev/neospring) by rooootdev and its contributors, whose SpringBoard refresh technique is used after wallpaper changes.
 - [ZIPFoundation](https://github.com/weichsel/ZIPFoundation) for ZIP archive handling.
@@ -64,4 +65,4 @@ Wallpaper artwork remains the property of its respective creators. Author attrib
 
 Placard is released under the [GNU General Public License v3.0](LICENSE).
 
-Some incorporated techniques or source material come from upstream projects. Review their respective terms before redistributing a build; in particular, the upstream `bad_query` and NeoSpring repositories may not declare a separate license.
+Some incorporated techniques or source material come from upstream projects. Review their respective terms before redistributing a build; in particular, `worse_query` and the App Group resolver are copied from the local GestaltEdit implementation under GPL-3.0-or-later. Review NeoSpring’s upstream terms as well.

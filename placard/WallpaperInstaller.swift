@@ -179,7 +179,7 @@ private actor WallpaperInstaller {
         #if targetEnvironment(simulator)
         throw InstallError.deviceRequired
         #else
-        guard BadQuery.isAvailable else { throw InstallError.unsupportedSystem }
+        guard WorseQuery.isAvailable else { throw InstallError.unsupportedSystem }
         guard wallpaper.downloadURL.scheme == "https",
               wallpaper.downloadURL.pathExtension.lowercased() == "tendies" else {
             throw InstallError.invalidDownloadURL
@@ -209,13 +209,13 @@ private actor WallpaperInstaller {
         try Task.checkCancellation()
 
         await progress(.locatingPosterBoard)
-        let appHash = try BadQuery.findPosterBoardHash()
+        let appHash = try WorseQuery.findPosterBoardHash()
         try Task.checkCancellation()
 
         await progress(.writing)
         var writtenPaths: [String] = []
         for (extensionID, descriptors) in descriptorGroups {
-            writtenPaths += try BadQuery.writeDescriptors(
+            writtenPaths += try WorseQuery.writeDescriptors(
                 appHash: appHash,
                 extensionID: extensionID,
                 descriptorFolders: descriptors
@@ -232,7 +232,7 @@ private actor WallpaperInstaller {
         #if targetEnvironment(simulator)
         throw InstallError.deviceRequired
         #else
-        guard BadQuery.isAvailable else { throw InstallError.unsupportedSystem }
+        guard WorseQuery.isAvailable else { throw InstallError.unsupportedSystem }
         guard sourceURL.pathExtension.lowercased() == "tendies" else {
             throw InstallError.unsupportedPackageType
         }
@@ -256,13 +256,13 @@ private actor WallpaperInstaller {
         try Task.checkCancellation()
 
         await progress(.locatingPosterBoard)
-        let appHash = try BadQuery.findPosterBoardHash()
+        let appHash = try WorseQuery.findPosterBoardHash()
         try Task.checkCancellation()
 
         await progress(.writing)
         var writtenPaths: [String] = []
         for (extensionID, descriptors) in descriptorGroups {
-            writtenPaths += try BadQuery.writeDescriptors(
+            writtenPaths += try WorseQuery.writeDescriptors(
                 appHash: appHash,
                 extensionID: extensionID,
                 descriptorFolders: descriptors

@@ -153,7 +153,7 @@ private actor VideoWallpaperInstaller {
         #if targetEnvironment(simulator)
         throw VideoWallpaperError.deviceRequired
         #else
-        guard BadQuery.isAvailable else { throw VideoWallpaperError.unsupportedSystem }
+        guard WorseQuery.isAvailable else { throw VideoWallpaperError.unsupportedSystem }
 
         await progress(.generating)
         let workspace = fileManager.temporaryDirectory
@@ -170,11 +170,11 @@ private actor VideoWallpaperInstaller {
         try Task.checkCancellation()
 
         await progress(.locatingPosterBoard)
-        let appHash = try BadQuery.findPosterBoardHash()
+        let appHash = try WorseQuery.findPosterBoardHash()
         try Task.checkCancellation()
 
         await progress(.writing)
-        let paths = try BadQuery.writeDescriptors(
+        let paths = try WorseQuery.writeDescriptors(
             appHash: appHash,
             extensionID: "com.apple.WallpaperKit.CollectionsPoster",
             descriptorFolders: [descriptor]
