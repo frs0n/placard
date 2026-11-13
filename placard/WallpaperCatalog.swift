@@ -33,6 +33,13 @@ enum WallpaperSource: String, Codable, Sendable {
         case .caPlayground: WallpaperCatalog.caPlaygroundPackageBaseURL
         }
     }
+
+    nonisolated var directPackageBaseURL: URL {
+        switch self {
+        case .nugget: URL(string: "https://raw.githubusercontent.com/SerStars/nugget-wallpapers/main/")!
+        case .caPlayground: URL(string: "https://raw.githubusercontent.com/CAPlayground/wallpapers/main/")!
+        }
+    }
 }
 
 enum WallpaperSortOrder: String, CaseIterable, Identifiable, Sendable {
@@ -80,6 +87,9 @@ struct Wallpaper: Codable, Identifiable, Equatable, Sendable {
 
     var id: String { "\(source.rawValue):\(url)" }
     nonisolated var downloadURL: URL { source.packageBaseURL.appending(path: url) }
+    nonisolated var downloadCandidates: [URL] {
+        [downloadURL, source.directPackageBaseURL.appending(path: url)]
+    }
     nonisolated var previewURL: URL { source.assetBaseURL.appending(path: preview) }
 
     enum CodingKeys: String, CodingKey {

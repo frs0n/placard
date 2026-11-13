@@ -3,7 +3,7 @@ import Observation
 import OSLog
 import ZIPFoundation
 
-private let installerLogger = Logger(
+nonisolated private let installerLogger = Logger(
     subsystem: Bundle.main.bundleIdentifier ?? "Placard",
     category: "WallpaperInstaller"
 )
@@ -191,7 +191,7 @@ private actor WallpaperInstaller {
         defer { try? fileManager.removeItem(at: workspace) }
 
         await progress(.downloading(0))
-        let packageURL = try await download(wallpaper.downloadURL, into: workspace) { fraction in
+        let packageURL = try await downloadPackage(from: wallpaper.downloadCandidates, into: workspace) { fraction in
             Task { @MainActor in
                 progress(.downloading(fraction))
             }
@@ -287,6 +287,68 @@ private actor WallpaperInstaller {
         let destination = workspace.appending(path: "wallpaper.\(sourceURL.pathExtension.lowercased())")
         try fileManager.copyItem(at: sourceURL, to: destination)
         return destination
+    }
+
+    /// Race lightweight HEAD requests, then retry the other route if the actual download fails.
+    private func downloadPackage(
+        from candidates: [URL],
+        into workspace: URL,
+        progress: @escaping @Sendable (Double) -> Void
+    ) async throws -> URL {
+        let preferred = await preferredDownloadURL(in: candidates)
+        try Task.checkCancellation()
+        let ordered = preferred.map { first in [first] + candidates.filter { $0 != first } } ?? candidates
+        var lastError: Error = InstallError.invalidDownloadURL
+        for url in ordered {
+            try Task.checkCancellation()
+            // A failed HTTP response can still leave a downloaded file behind.
+            let destination = workspace.appending(path: "wallpaper.tendies")
+            if fileManager.fileExists(atPath: destination.path) {
+                try fileManager.removeItem(at: destination)
+            }
+            progress(0)
+            do {
+                return try await download(url, into: workspace, progress: progress)
+            } catch {
+                try Task.checkCancellation()
+                lastError = error
+                installerLogger.notice("Download route failed: \(url.absoluteString, privacy: .public); trying next route")
+            }
+        }
+        throw lastError
+    }
+
+    private func preferredDownloadURL(in candidates: [URL]) async -> URL? {
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.requestCachePolicy = .reloadIgnoringLocalCacheData
+        configuration.timeoutIntervalForRequest = 8
+        configuration.timeoutIntervalForResource = 8
+        let session = URLSession(configuration: configuration)
+        defer { session.invalidateAndCancel() }
+        return await withTaskGroup(of: URL?.self) { group in
+            for url in candidates {
+                group.addTask {
+                    var request = URLRequest(url: url)
+                    request.httpMethod = "HEAD"
+                    do {
+                        let (_, response) = try await session.data(for: request)
+                        guard let response = response as? HTTPURLResponse,
+                              response.statusCode == 200 else { return nil }
+                        return url
+                    } catch {
+                        return nil
+                    }
+                }
+            }
+            for await result in group {
+                if let url = result {
+                    group.cancelAll()
+                    return url
+                }
+            }
+            // Some hosts reject HEAD; still try both routes with a real GET.
+            return nil
+        }
     }
 
     private func download(
