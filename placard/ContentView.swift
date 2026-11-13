@@ -399,33 +399,42 @@ struct CustomWallpaperView: View {
     }
 
     private var developerRow: some View {
-        Link(destination: URL(string: "https://v.douyin.com/jIfvCCHjwFE")!) {
-            HStack(spacing: 12) {
-                Image("DeveloperAvatar")
-                    .resizable()
-                    .scaledToFill()
-                    .frame(width: 36, height: 36)
-                    .clipShape(.circle)
+        HStack(spacing: 12) {
+            Image("DeveloperAvatar")
+                .resizable()
+                .scaledToFill()
+                .frame(width: 36, height: 36)
+                .clipShape(.circle)
 
-                Text("Developer")
-                    .font(.subheadline)
-                    .foregroundStyle(.primary)
+            Text("Developer")
+                .font(.subheadline)
+                .foregroundStyle(.primary)
 
-                Spacer()
+            Spacer(minLength: 8)
 
-                Text("SUSS")
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-                Image(systemName: "arrow.up.right")
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(.tertiary)
+            HStack(spacing: 0) {
+                developerSocialLink("X", image: "SocialX", url: "https://x.com/Frs0n_")
+                developerSocialLink("GitHub", image: "SocialGitHub", url: "https://github.com/frs0n")
+                developerSocialLink("抖音", image: "SocialDouyin", url: "https://v.douyin.com/jIfvCCHjwFE")
             }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 12)
-            .contentShape(.rect)
+        }
+        .padding(.leading, 16)
+        .padding(.trailing, 8)
+        .padding(.vertical, 8)
+    }
+
+    private func developerSocialLink(_ name: String, image: String, url: String) -> some View {
+        Link(destination: URL(string: url)!) {
+            Image(image)
+                .resizable()
+                .scaledToFit()
+                .frame(width: 20, height: 20)
+                .foregroundStyle(.secondary)
+                .frame(width: 44, height: 44)
+                .contentShape(.rect)
         }
         .buttonStyle(.plain)
-        .accessibilityLabel("Developer SUSS")
+        .accessibilityLabel("SUSS · " + name)
     }
 
     private var donationRow: some View {
