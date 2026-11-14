@@ -48,14 +48,11 @@ jobs:
             CODE_SIGNING_REQUIRED=NO \
             CODE_SIGNING_ALLOWED=NO
 
-      - name: Package unsigned IPA
+      - name: Package IPA with App Group entitlements
         run: |
-          mkdir -p "$RUNNER_TEMP/Payload"
-          cp -R \
-            "$RUNNER_TEMP/placard.xcarchive/Products/Applications/placard.app" \
-            "$RUNNER_TEMP/Payload/"
-          cd "$RUNNER_TEMP"
-          zip -qry "placard-v${VERSION}-unsigned.ipa" Payload
+          python3 .github/scripts/package-ipa.py \
+            --app "$RUNNER_TEMP/placard.xcarchive/Products/Applications/placard.app" \
+            --output "$RUNNER_TEMP/placard-v${VERSION}-unsigned.ipa"
 
       - name: Upload unsigned IPA artifact
         uses: actions/upload-artifact@v4
